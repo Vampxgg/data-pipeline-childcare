@@ -190,9 +190,12 @@ def _dify_debug_return(data: Dict[str, Any], label: str = "Final Return") -> Dic
     return data
 
 
-def _intelligent_input_parser(raw_input: Any) -> Dict[str, Any]:
+def _intelligent_input_parser(raw_input: Any, run_mode: str = "X-Pilot") -> Dict[str, Any]:
     """
     健壮地解析复杂的输入结构，提取web搜索查询、职业查询数据和企业查询名称。
+    支持两种模式：
+    1. Legacy/Internal (X-Pilot): comprehensive_query, career_query, tianyan_check_enterprise
+    2. New/External (Tuoyu): general_web_query, institution_source_query, career_query
     """
     if isinstance(raw_input, list) and len(raw_input) > 0:
         actual_input = raw_input[0]
@@ -202,7 +205,14 @@ def _intelligent_input_parser(raw_input: Any) -> Dict[str, Any]:
     if isinstance(actual_input, str):
         if not actual_input.strip():
             # 【调整】如果输入为空字符串，返回所有字段都为空的结构，避免下游报错。
-            return {"comprehensive_queries": [], "career_query_data": {}, "tianyan_enterprise_names": []}
+            return {
+                "mode": "unknown",
+                "comprehensive_queries": [],
+                "general_web_queries": [],
+                "institution_source_queries": [],
+                "career_query_data": {},
+                "tianyan_enterprise_names": []
+            }
         try:
             data = json_repair.loads(actual_input)
         except Exception as e:
@@ -217,16 +227,36 @@ def _intelligent_input_parser(raw_input: Any) -> Dict[str, Any]:
     # 安全地提取 web_queries 对象
     web_queries_obj = data.get("web_queries", {})
     if not isinstance(web_queries_obj, dict): web_queries_obj = {}
-    # 1. 提取 comprehensive_query
+
+    # 1. 提取 comprehensive_query (Legacy)
     comprehensive_queries = []
     query_list = web_queries_obj.get("comprehensive_query", [])
     if isinstance(query_list, list) and all(isinstance(item, str) for item in query_list):
         comprehensive_queries = query_list
 
-    # 2. 提取 career_query
+    # 2. 提取 general_web_query (New)
+    general_web_queries = []
+    gw_list = web_queries_obj.get("general_web_query", [])
+    if isinstance(gw_list, list) and all(isinstance(item, str) for item in gw_list):
+        general_web_queries = gw_list
+
+    # 3. 提取 institution_source_query (New)
+    institution_source_queries = []
+    is_list = web_queries_obj.get("institution_source_query", [])
+    if isinstance(is_list, list) and all(isinstance(item, str) for item in is_list):
+        institution_source_queries = is_list
+
+    # 4. 提取 career_query (Shared)
     career_query_data = web_queries_obj.get("career_query", {})
     if not isinstance(career_query_data, dict): career_query_data = {}
-    # 3. 提取 tianyan_check_enterprise
+
+    # 5. 提取 web_query (New Tuoyu Structure)
+    tuoyu_web_queries = []
+    tw_list = web_queries_obj.get("web_query", [])
+    if isinstance(tw_list, list) and all(isinstance(item, str) for item in tw_list):
+        tuoyu_web_queries = tw_list
+
+    # 6. 提取 tianyan_check_enterprise (Legacy)
     tianyan_input = web_queries_obj.get("tianyan_check_enterprise", [])  # 默认值改为空列表
     tianyan_enterprise_names: List[str] = []
 
@@ -242,8 +272,23 @@ def _intelligent_input_parser(raw_input: Any) -> Dict[str, Any]:
             if isinstance(item, str) and str(item).strip()
         ]
 
+    # Determine Mode
+    mode = "legacy"
+    if run_mode and run_mode.lower() == "tuoyu":
+        mode = "external"
+    elif run_mode and run_mode.lower() == "x-pilot":
+        mode = "legacy"
+    else:
+        # Fallback to auto-detection
+        if general_web_queries or institution_source_queries or tuoyu_web_queries:
+            mode = "external"
+
     return {
+        "mode": mode,
         "comprehensive_queries": comprehensive_queries,
+        "general_web_queries": general_web_queries,
+        "institution_source_queries": institution_source_queries,
+        "tuoyu_web_queries": tuoyu_web_queries,
         "career_query_data": career_query_data,
         "tianyan_enterprise_names": tianyan_enterprise_names
     }
@@ -349,7 +394,7 @@ SEARCH_STRATEGY_CONFIG = {
             "site:{scope}.edu.gov.cn",  # 地方教育局 (注意：很多地方教育局域名不统一，这是通用规则)
             "site:edu.{scope}.gov.cn",  # 另一种常见的教育局域名格式
             "site:{scope}.drc.gov.cn",  # 地方发改委
-            "site:{scope}.tjj.gov.cn",  # 地方统计局
+            "site:{scope}.gov.cn",  # 地方统计局
             "site:www.{scope}.gov.cn"  # 地方政府门户
         ],
         "_source_ownership": "TuoYu"
@@ -1192,10 +1237,17 @@ EXCLUSIVE_SEARCH_RESULTS_COUNT = 10
 async def main_async(raw_input: Any, provider_selection: Union[str, List[str]], search_types: List[str],
                      web_results_per_type: int, video_results_count: int,
                      regional_data: Optional[Dict[str, str]] = None,
-                     time_filter_input: Any = None) -> Dict[str, Any]:
+                     time_filter_input: Any = None,
+                     run_mode: str = "X-Pilot") -> Dict[str, Any]:
     # 1. 解析所有潜在输入
-    parsed_data = _intelligent_input_parser(raw_input)
+    parsed_data = _intelligent_input_parser(raw_input, run_mode)
+    mode = parsed_data.get("mode", "legacy")
+
     comprehensive_queries = parsed_data["comprehensive_queries"]
+    general_web_queries = parsed_data["general_web_queries"]
+    institution_source_queries = parsed_data["institution_source_queries"]
+    tuoyu_web_queries = parsed_data.get("tuoyu_web_queries", [])
+
     career_query_data = parsed_data["career_query_data"]
     tianyan_enterprise_names = parsed_data["tianyan_enterprise_names"]
 
@@ -1206,6 +1258,8 @@ async def main_async(raw_input: Any, provider_selection: Union[str, List[str]], 
 
     # 2. 初始化结果容器
     comprehensive_results = []
+    general_web_results = []
+    institution_source_results = []
     career_results = {}
     tianyan_results: List[str] = []
 
@@ -1224,7 +1278,21 @@ async def main_async(raw_input: Any, provider_selection: Union[str, List[str]], 
     # 如果清理后 search_types 为空，则设置默认值，以确保专属查询可以执行
     effective_search_types = search_types if search_types else ["web"]
 
-    has_web_work = bool(comprehensive_queries) or bool(exclusive_queries)
+    # 3.0 [Tuoyu Mode Adjustment] Distribute tuoyu_web_queries based on search_types
+    # 分离 General 类型 (web, video) 和 Institution 类型 (others)
+    general_search_types = [t for t in effective_search_types if t in ['web', 'video']]
+    institution_search_types = [t for t in effective_search_types if t not in ['web', 'video', 'exclusive_rules']]
+
+    if mode == "external" and tuoyu_web_queries:
+        print(f"  [Tuoyu Mode] Distributing web_query to General and Institution tasks.")
+        # 如果有通用搜索类型，则将 web_query 分配给 general_web_queries
+        if general_search_types and not general_web_queries:
+            general_web_queries = tuoyu_web_queries
+        # 如果有机构搜索类型，则将 web_query 分配给 institution_source_queries
+        if institution_search_types and not institution_source_queries:
+            institution_source_queries = tuoyu_web_queries
+
+    has_web_work = bool(comprehensive_queries) or bool(general_web_queries) or bool(institution_source_queries) or bool(exclusive_queries)
 
     # 3.1 处理 Provider 选择逻辑 (仅当有工作时才深入处理)
     selected_providers = []
@@ -1257,36 +1325,15 @@ async def main_async(raw_input: Any, provider_selection: Union[str, List[str]], 
             web_search_providers_to_use = [p for p in selected_providers if p in all_web_provider_names]
             # selected_providers = list(set(selected_providers + all_web_provider_names))
 
-    # # 4. 任务分派与执行
-    # web_search_providers_to_use = [p for p in selected_providers if p in all_web_provider_names]
-    # is_zhilian_requested = "zhilian_job" in selected_providers
-    # is_tianyan_requested = "tianyan_check_enterprises" in selected_providers
-
-    # # 4.1 执行Web搜索（如果需要）
-    # if web_search_providers_to_use and comprehensive_queries:
-    #     print(f"🌐 [Web Search] 使用 {web_search_providers_to_use} 搜索 {len(comprehensive_queries)} 个查询...")
-    #     async with httpx.AsyncClient(http2=True, verify=False) as client:
-    #         comprehensive_results = await searcher.web_search(
-    #             queries=comprehensive_queries,
-    #             providers_to_use=web_search_providers_to_use,
-    #             client=client,
-    #             search_types=search_types,
-    #             web_results_per_type=web_results_per_type,
-    #             video_results_count=video_results_count
-    #         )
-    #
-    # else:
-    #     print("🟡 [Web Search] 无需执行Web搜索。(查询为空或未选择任何有效的Web提供商)")
-
     if web_search_providers_to_use:
         # http2=True 需要安装 h2 库，如果没装会报错。为保险起见，这里先关掉 http2，或者改为 try-except 自动降级
         # async with httpx.AsyncClient(http2=True, verify=False) as client:
         async with httpx.AsyncClient(http2=False, verify=False) as client:
             async_tasks = []
-            # 5.1 创建普通查询任务 (如果存在)
+            # 5.1 创建 Legacy Mode 查询任务
             if comprehensive_queries:
                 print(
-                    f"  -> [Task Group 1: Normal] Scheduling {len(comprehensive_queries)} queries, requesting {web_results_per_type} results each.")
+                    f"  -> [Legacy Mode] Scheduling {len(comprehensive_queries)} comprehensive queries.")
                 normal_task = searcher.web_search(
                     queries=comprehensive_queries,
                     providers_to_use=web_search_providers_to_use,
@@ -1297,11 +1344,54 @@ async def main_async(raw_input: Any, provider_selection: Union[str, List[str]], 
                     regional_data=regional_data,
                     time_filter=time_filter
                 )
-                async_tasks.append(normal_task)
-            # 5.2 创建专属查询任务 (如果存在)
+                async_tasks.append(("comprehensive", normal_task))
+
+            # 5.2 创建 External Mode: General Web 查询任务
+            if general_web_queries:
+                # 仅使用 general_search_types
+                current_search_types = general_search_types if mode == "external" else effective_search_types
+                if current_search_types:
+                    print(
+                        f"  -> [External Mode] Scheduling {len(general_web_queries)} general web queries with types: {current_search_types}")
+                    gw_task = searcher.web_search(
+                        queries=general_web_queries,
+                        providers_to_use=web_search_providers_to_use,
+                        client=client,
+                        search_types=current_search_types,
+                        web_results_per_type=web_results_per_type,
+                        video_results_count=video_results_count,
+                        regional_data=regional_data,
+                        time_filter=time_filter
+                    )
+                    async_tasks.append(("general_web", gw_task))
+                else:
+                    print("  -> [External Mode] Skipping General Web Search (No general search types selected).")
+
+            # 5.3 创建 External Mode: Institution Source 查询任务
+            if institution_source_queries:
+                # 仅使用 institution_search_types
+                current_search_types = institution_search_types if mode == "external" else effective_search_types
+                if current_search_types:
+                    print(
+                        f"  -> [External Mode] Scheduling {len(institution_source_queries)} institution source queries with types: {current_search_types}")
+                    is_task = searcher.web_search(
+                        queries=institution_source_queries,
+                        providers_to_use=web_search_providers_to_use,
+                        client=client,
+                        search_types=current_search_types,
+                        web_results_per_type=web_results_per_type,
+                        video_results_count=video_results_count,
+                        regional_data=regional_data,
+                        time_filter=time_filter
+                    )
+                    async_tasks.append(("institution_source", is_task))
+                else:
+                    print("  -> [External Mode] Skipping Institution Source Search (No institution search types selected).")
+
+            # 5.4 创建专属查询任务 (如果存在)
             if is_exclusive_requested and exclusive_queries:
                 print(
-                    f"  -> [Task Group 2: Exclusive] Scheduling {len(exclusive_queries)} queries, requesting {EXCLUSIVE_SEARCH_RESULTS_COUNT} results each.")
+                    f"  -> [Exclusive] Scheduling {len(exclusive_queries)} queries, requesting {EXCLUSIVE_SEARCH_RESULTS_COUNT} results each.")
                 # 注意：专属查询通常是网页搜索，所以 video_count=0
                 exclusive_task = searcher.web_search(
                     queries=exclusive_queries,
@@ -1312,17 +1402,26 @@ async def main_async(raw_input: Any, provider_selection: Union[str, List[str]], 
                     video_results_count=0,
                     time_filter=time_filter  # 专属查询也应用时间过滤
                 )
-                async_tasks.append(exclusive_task)
-            # 5.3 并发执行所有任务组
+                # 根据模式决定归属
+                target_key = "general_web" if mode == "external" else "comprehensive"
+                async_tasks.append((target_key, exclusive_task))
+
+            # 5.5 并发执行所有任务组
             if async_tasks:
                 print(f"🌐 [Web Search] Executing {len(async_tasks)} task group(s) concurrently...")
                 # gather 会返回一个列表，每个元素是 web_search 调用的结果 (也是一个列表)
-                # 例如: [ [normal_results], [exclusive_results] ]
-                all_results_groups = await asyncio.gather(*async_tasks)
+                tasks_only = [t[1] for t in async_tasks]
+                all_results_groups = await asyncio.gather(*tasks_only)
 
-                # 5.4 合并结果
-                for result_group in all_results_groups:
-                    comprehensive_results.extend(result_group)
+                # 5.6 合并结果
+                for i, (key, _) in enumerate(async_tasks):
+                    results = all_results_groups[i]
+                    if key == "comprehensive":
+                        comprehensive_results.extend(results)
+                    elif key == "general_web":
+                        general_web_results.extend(results)
+                    elif key == "institution_source":
+                        institution_source_results.extend(results)
             else:
                 print("🟡 [Web Search] 无需执行Web搜索。(查询为空或未选择任何有效的Web提供商)")
 
@@ -1334,18 +1433,37 @@ async def main_async(raw_input: Any, provider_selection: Union[str, List[str]], 
 
     # 4.3 执行Tianyan数据提取（如果需要）
     if is_tianyan_requested:
-        tianyan_results = searcher.get_tianyan_provider().get_data(tianyan_enterprise_names)
+        # 仅在 Legacy Mode 或明确要求时执行
+        if tianyan_enterprise_names:
+            tianyan_results = searcher.get_tianyan_provider().get_data(tianyan_enterprise_names)
+        else:
+            print("🟡 [Tianyan] 未提供企业名称，跳过。")
     else:
         print("🟡 [Tianyan] 未请求企业数据提取。")
 
     # 5. 组装最终输出
-    final_output = {
-        "datas": {
-            "comprehensive_data": comprehensive_results,
-            "career_data": career_results,
-            "tianyan_check_data": tianyan_results
+    final_output = {}
+    # Explicitly pass the run_mode to the next node
+    output_run_mode = "X-Pilot" if mode == "legacy" else "Tuoyu"
+
+    if mode == "legacy":
+        final_output = {
+            "datas": {
+                "run_mode": output_run_mode,
+                "comprehensive_data": comprehensive_results,
+                "career_data": career_results,
+                "tianyan_check_data": tianyan_results
+            }
         }
-    }
+    else:
+        final_output = {
+            "datas": {
+                "run_mode": output_run_mode,
+                "general_web_data": general_web_results,
+                "institution_source_data": institution_source_results,
+                "career_data": career_results
+            }
+        }
 
     return {
         "datas": final_output["datas"],
@@ -1362,10 +1480,17 @@ def main(
         web_results_per_type: Any = 3,
         video_results_count: Any = 2,
         regional_rules: Any = None,
-        time_filter: Any = None
+        time_filter: Any = None,
+        run_mode: str = "X-Pilot"
 ) -> Dict[str, Any]:
     # 定义一个标准的空/错误返回结构
-    error_datas_structure = {"comprehensive_data": [], "career_data": {}, "tianyan_check_data": []}
+    error_datas_structure = {
+        "comprehensive_data": [],
+        "general_web_data": [],
+        "institution_source_data": [],
+        "career_data": {},
+        "tianyan_check_data": []
+    }
 
     def construct_error_payload(e, trace):
         error_message = f"An error occurred in the node: {str(e)}"
@@ -1459,7 +1584,8 @@ def main(
             web_results_per_type=web_count,
             video_results_count=video_count,
             regional_data=regional_data_dict,
-            time_filter_input=time_filter
+            time_filter_input=time_filter,
+            run_mode=run_mode
         ))
 
         return _dify_debug_return(res, label='Success')
@@ -1475,16 +1601,14 @@ main({
     "web_queries": {
         "career_query": {
         },
-        "comprehensive_query": [
-            "保育员",
-        ],
-        "tianyan_check_enterprise": [
+        "web_query": [
+            "保育员"
         ]
     }
 }, ["searchapi_io"], [
-    "web"
+    "web","exclusive_rules"
 ], web_results_per_type="3", regional_rules={"school": "中医医疗", "major": "医学垂直类专业", "scope": "湖北"},
-    time_filter="2026-01-22"
+    time_filter="2026-01-22", run_mode="Tuoyu"
 )
 
 # async def main_async(raw_input: Any, provider_selection: Union[str, List[str]], web_results_count: int,

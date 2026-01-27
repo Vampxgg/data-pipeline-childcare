@@ -74,7 +74,7 @@ def _dify_debug_return(data: Dict[str, Any], label: str = "Final Return") -> Dic
 def _parse_input_data(raw_input: Any) -> Dict[str, Any]:
     """
     健壮地解析上一个节点的输出，能同时处理带 "datas" 包装和不带包装的两种结构。
-    并分离出网页搜索URL、视频URL、招聘查询参数和企业名称，同时保留元数据。
+    并分离出不同来源的网页搜索URL、视频URL、招聘查询参数和企业名称，同时保留元数据。
     """
     print(
         f"============== 步骤 1: 接收到原始输入 ==============\nTYPE: {type(raw_input)}\nVALUE: {raw_input}\n=======================================================")
@@ -99,53 +99,80 @@ def _parse_input_data(raw_input: Any) -> Dict[str, Any]:
 
     if not isinstance(datas_obj, dict): datas_obj = {}
 
+    # Extract run_mode from input data if available
+    extracted_run_mode = datas_obj.get("run_mode")
+    print(f"  [解析器] 从输入中提取到的 run_mode: {extracted_run_mode}")
+
+    # --- 1. 提取 Legacy Mode 数据 ---
     comprehensive_data = datas_obj.get("comprehensive_data", [])
-    career_data = datas_obj.get("career_data", {})
     tianyan_data = datas_obj.get("tianyan_check_data", [])
+    
+    # --- 2. 提取 External Mode 数据 ---
+    general_web_data = datas_obj.get("general_web_data", [])
+    institution_source_data = datas_obj.get("institution_source_data", [])
+    # 兼容 Tuoyu 模式下 web_query 可能被分配到的位置，或者未来直接传递 tuoyu_web_data
+    # 目前上游逻辑是将 tuoyu_web_queries 分配给了 general_web_data 或 institution_source_data
+    # 所以这里不需要额外提取 tuoyu_web_data，除非上游结构改变
+
+
+    # --- 3. 提取 Shared 数据 ---
+    career_data = datas_obj.get("career_data", {})
 
     web_url_info_list = []
     video_url_info_list = []
 
-    if isinstance(comprehensive_data, list):
-        for query_result in comprehensive_data:
+    def _extract_urls(source_data, origin_key):
+        """Helper to extract URLs from a list of query results."""
+        if not isinstance(source_data, list): return
+        for query_result in source_data:
             if not isinstance(query_result, dict): continue
             query_text = query_result.get("query", "")
-
+            
+            # Iterate through all keys to find result lists (e.g., 'web_results', 'video_results', 'policy_regional_results')
             for key, result_list in query_result.items():
                 if not key.endswith("_results") or not isinstance(result_list, list):
                     continue
-
+                
                 for res in result_list:
                     if not isinstance(res, dict): continue
 
-                    # 【【修复】】 provider 提取逻辑，使其更精确，避免被 _embed_url 等键干扰。
-                    # 我们寻找的键必须是单纯的 "xxx_url"，而不是 "xxx_embed_url"。
+                    # Identify provider
                     provider = next(
                         (k[:-4] for k in res if k.endswith('_url') and '_embed_' not in k and '_thumbnail_' not in k),
                         None)
                     if not provider:
-                        # 如果找不到，做一个备选方案，以防万一
                         provider = next((k.split('_')[0] for k in res if '_url' in k), None)
                         if not provider: continue
 
                     result_type = res.get(f"{provider}_type")
-                    # 分类逻辑保持不变，但现在它的输入 (result_type) 是正确的了
+                    
+                    # Common info
+                    info = {
+                        "url": res.get(f"{provider}_url"), 
+                        "title": res.get(f"{provider}_title", "Untitled"),
+                        "source": res.get(f"{provider}_source"), 
+                        "snippet": res.get(f"{provider}_snippet"),
+                        "provider": provider, 
+                        "query": query_text,
+                        "origin_key": origin_key # Tag the source origin
+                    }
+                    
+                    if not info["url"]: continue
+
                     if result_type == 'video':
-                        info = {
-                            "url": res.get(f"{provider}_url"), "title": res.get(f"{provider}_title", "Untitled"),
-                            "source": res.get(f"{provider}_source"), "snippet": res.get(f"{provider}_snippet"),
-                            "provider": provider, "query": query_text,
-                            "video_id": res.get(f"{provider}_video_id"), "embed_url": res.get(f"{provider}_embed_url"),
+                        info.update({
+                            "video_id": res.get(f"{provider}_video_id"), 
+                            "embed_url": res.get(f"{provider}_embed_url"),
                             "thumbnail_url": res.get(f"{provider}_thumbnail_url"),
-                        }
-                        if info["url"]: video_url_info_list.append(info)
+                        })
+                        video_url_info_list.append(info)
                     else:
-                        info = {
-                            "url": res.get(f"{provider}_url"), "title": res.get(f"{provider}_title", "Untitled"),
-                            "source": res.get(f"{provider}_source"), "snippet": res.get(f"{provider}_snippet"),
-                            "provider": provider, "query": query_text,
-                        }
-                        if info["url"]: web_url_info_list.append(info)
+                        web_url_info_list.append(info)
+
+    # Process all sources
+    _extract_urls(comprehensive_data, "comprehensive_data")
+    _extract_urls(general_web_data, "general_web_data")
+    _extract_urls(institution_source_data, "institution_source_data")
 
     career_payload = career_data if isinstance(career_data, dict) else {}
     enterprise_names: List[str] = []
@@ -155,7 +182,19 @@ def _parse_input_data(raw_input: Any) -> Dict[str, Any]:
     elif isinstance(tianyan_data, list):
         print(f"  [解析器] 检测到 tianyan_check_data 为列表，将处理 {len(tianyan_data)} 个企业。")
         enterprise_names = [str(name).strip() for name in tianyan_data if isinstance(name, str) and str(name).strip()]
+    
+    # Detect Mode
+    mode = "legacy"
+    if extracted_run_mode and extracted_run_mode.lower() == "tuoyu":
+        mode = "external"
+    elif extracted_run_mode and extracted_run_mode.lower() == "x-pilot":
+        mode = "legacy"
+    else:
+        if general_web_data or institution_source_data:
+            mode = "external"
+
     parsed_result = {
+        "mode": mode,
         "web_url_info_list": web_url_info_list,
         "video_url_info_list": video_url_info_list,
         "career_payload": career_payload,
@@ -163,7 +202,7 @@ def _parse_input_data(raw_input: Any) -> Dict[str, Any]:
     }
 
     print(
-        f"============== 步骤 2: 输入解析完毕 ==============\n网页URL数量: {len(web_url_info_list)}\n视频URL数量: {len(video_url_info_list)}\n招聘负载: {career_payload}\n企业名称列表: {enterprise_names} (共 {len(enterprise_names)} 个)\n=======================================================")
+        f"============== 步骤 2: 输入解析完毕 ==============\n模式: {mode}\n网页URL数量: {len(web_url_info_list)}\n视频URL数量: {len(video_url_info_list)}\n招聘负载: {career_payload}\n企业名称列表: {enterprise_names} (共 {len(enterprise_names)} 个)\n=======================================================")
 
     return parsed_result
 
@@ -824,6 +863,8 @@ async def main_async(raw_input: Any) -> Dict[str, Any]:
     video_url_info_list = parsed_data["video_url_info_list"]
     career_payload = parsed_data["career_payload"]
     enterprise_names = parsed_data["enterprise_names"]
+    mode = parsed_data.get("mode", "legacy")
+
     if not web_url_info_list and not video_url_info_list and (
             not career_payload or not career_payload.get("keywords")) and not enterprise_names:
         print("🟡 所有输入均为空，提前返回。")
@@ -831,19 +872,38 @@ async def main_async(raw_input: Any) -> Dict[str, Any]:
     # 2. 运行调度器
     orchestrator = DataOrchestrator()
     results = await orchestrator.process_all(web_url_info_list, career_payload, enterprise_names)
-    # 3. 格式化网页内容输出
-    all_source_list = []
-    for result in results["content_results"]:
+    
+    # 3. 格式化网页内容输出 (按 origin_key 分组)
+    content_results_by_origin = {
+        "comprehensive_data": [],
+        "general_web_data": [],
+        "institution_source_data": []
+    }
+    
+    for i, result in enumerate(results["content_results"]):
         if isinstance(result, Exception): continue
         if result.get("status") == "success":
             sanitized_url = re.sub(r'[^a-zA-Z0-9]', '-',
                                    result.get("url", "").replace("https://", "").replace("http://", ""))
-            all_source_list.append({
+            
+            # Retrieve the origin_key from the input list corresponding to this result
+            # Note: results["content_results"] corresponds exactly to web_url_info_list order
+            origin_key = web_url_info_list[i].get("origin_key", "comprehensive_data")
+            
+            item_data = {
                 "type": "web", "source_id": f"web-{sanitized_url[:100]}", "url": result.get("url"),
                 "title": result.get("title"), "source": result.get("source"), "snippet": result.get("snippet"),
                 "query": result.get("query"), "content": result.get("content", "")
-            })
-    # 4. 格式化视频内容输出
+            }
+            
+            if origin_key in content_results_by_origin:
+                content_results_by_origin[origin_key].append(item_data)
+            else:
+                # Fallback
+                content_results_by_origin["comprehensive_data"].append(item_data)
+
+    # 4. 格式化视频内容输出 (暂不分组，视频通常只出现在 comprehensive 或 general 中，这里简单处理)
+    # 如果需要严格分组，也需要在 _extract_urls 中对视频加 origin_key
     all_video_list = []
     for video_item in video_url_info_list:
         all_video_list.append({
@@ -852,6 +912,7 @@ async def main_async(raw_input: Any) -> Dict[str, Any]:
             "video_id": video_item.get("video_id"), "embed_url": video_item.get("embed_url"),
             "thumbnail_url": video_item.get("thumbnail_url"), "query": video_item.get("query")
         })
+
     # 【调整】处理招聘和企业信息结果时，检查它们是否存在（是否为None）
     career_postings = results.get("job_result")
     if career_postings is None:
@@ -894,14 +955,35 @@ async def main_async(raw_input: Any) -> Dict[str, Any]:
         }
 
     # 6. 组装最终输出
-    comprehensive_data_output = {"all_source_list": all_source_list, "all_video_list": all_video_list}
-    final_output = {
-        "scraped_datas": {
-            "comprehensive_data": comprehensive_data_output,
-            "career_postings": career_postings,
-            "enterprise_infos": enterprise_infos_output
+    final_output = {}
+    
+    if mode == "legacy":
+        # Legacy Mode Output Structure
+        comprehensive_data_output = {
+            "all_source_list": content_results_by_origin["comprehensive_data"], 
+            "all_video_list": all_video_list
         }
-    }
+        final_output = {
+            "scraped_datas": {
+                "comprehensive_data": comprehensive_data_output,
+                "career_postings": career_postings,
+                "enterprise_infos": enterprise_infos_output
+            }
+        }
+    else:
+        # External Mode Output Structure
+        # Note: External mode currently doesn't focus on video list separately in the top structure, 
+        # but we can include it if needed. For now, we follow the plan to separate general and institution.
+        final_output = {
+            "scraped_datas": {
+                "general_web_data": content_results_by_origin["general_web_data"],
+                "institution_source_data": content_results_by_origin["institution_source_data"],
+                "career_postings": career_postings,
+                # Video list can be appended to general_web_data or kept separate if required by downstream.
+                # For now, let's keep it simple.
+            }
+        }
+        
     return {
         "scraped_datas": final_output["scraped_datas"],
         "scraped_datas_str": json.dumps(final_output, ensure_ascii=False, indent=2)
@@ -934,23 +1016,22 @@ def main(datas_input: Any) -> Dict[str, Any]:
         })
 
 
-main({
-  "comprehensive_data": [
-    {
-      "errors": [],
-      "policy_regional_results": [
-        {
-          "searchapi_snippet": "发布《2024 年网络安全产业人才发展报告》。报告显示，我国网络. 安全产业规模持续增长。根据中国信通院的统计测算，2022 年我国. 网络安全产业规模达到2055.3 亿元...",
-          "searchapi_source": "中华人民共和国教育部政府门户网站",
-          "searchapi_title": "1.学校基本情况 - 登录- 教育部",
-          "searchapi_type": "policy_regional",
-          "searchapi_url": "https://server.x-pilot.cn/static/meta-doc/pdf/cb3d7e4957f9f2908b2e930dfc090c8f.pdf"
-        }
-      ],
-      "query": "湖北省 中医药产业 市场规模与发展趋势分析报告 2024-2026"
-    }
-  ]
-})
+# main({ 'career_data': {},
+#              'general_web_data': [ { 'errors': [],
+#                                      'query': '保育员',
+#                                      'web_results': [ { 'searchapi_snippet': '蓝盈莹在短剧《马背摇篮》中饰演保育员文纫秋，虽无实际育儿经验，却通过与136名小演员的真实互动、沉浸式重走历史路线及细腻的表演设计，将战时“文妈妈”的柔韧与坚毅演绎 '
+#                                                                              '...',
+#                                                         'searchapi_source': '新浪新闻_手机新浪网',
+#                                                         'searchapi_title': "演员蓝盈莹无子女却演活'文妈妈'，真实儿童互动如何成就短 ...",
+#                                                         'searchapi_type': 'web',
+#                                                         'searchapi_url': 'https://news.sina.cn/bignews/insight/2026-01-24/detail-inhikete1442916.d.html?oid=%E9%AB%98%E4%BB%BFmiumiu%E5%A5%B3%E5%8C%85%E7%B2%89%E7%BA%A2%E8%89%B2%EF%BC%88%E5%BE%AE%E4%BF%A1198099199%EF%BC%89lvN7&vt=4'},
+#                                                       { 'searchapi_snippet': '保育员是幼儿园重要工种之一，是保育工作的具体实施者。虽然每个幼儿园的工种有所差异但是其基本职责与要求都是一样的，但是其目的是促进幼儿的全面发展。',
+#                                                         'searchapi_source': 'orginview.com',
+#                                                         'searchapi_title': '幼儿园的保育员需要什么证（需要什么条件好不好做） -',
+#                                                         'searchapi_type': 'web',
+#                                                         'searchapi_url': 'http://www.orginview.com/plugin.php?id=tom_tctoutiao&site=1&mod=info&aid=398'}]}],
+#              'institution_source_data': [],
+#              'run_mode': 'Tuoyu'})
 
 # # --- 4. 统一调度中心 (已重命名和扩展) ---
 # class DataOrchestrator:
