@@ -98,4 +98,4 @@ class TuoyuScraper:
 
 if __name__ == "__main__":
     scraper = TuoyuScraper()
-    asyncio.run(scraper.scrape_all(max_pages=5)) # 测试爬取前5页
+    asyncio.run(scraper.scrape_all(max_pages=6272))
