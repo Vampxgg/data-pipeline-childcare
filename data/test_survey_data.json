@@ -1,0 +1,73 @@
+{
+  "institution_info": {
+    "name": "阳光贝贝托育中心",
+    "city": "上海市",
+    "subject_type": "民办",
+    "specific_form": "独立托育机构",
+    "is_puhui": true,
+    "service_modes": ["全日托", "计时托"],
+    "total_capacity": 60,
+    "current_enrollment": 45,
+    "staff_count": 12
+  },
+  "personal_info": {
+    "gender": "女",
+    "education": "普通本科",
+    "major": "学前教育"
+  },
+  "employment_info": {
+    "current_position": "园长/机构负责人",
+    "current_position_other": "",
+    "job_change_interval": "3-5年",
+    "job_change_reasons": ["个人职业发展", "薪资待遇"],
+    "salary_range": "8000-10000元",
+    "is_kindergarten_transition": true,
+    "transition_needs": "0-3岁婴幼儿照护技能"
+  },
+  "position_details": {
+    "core_tasks": [
+      "制定机构发展规划",
+      "负责日常运营管理",
+      "统筹安全卫生工作",
+      "家园沟通与社区合作"
+    ],
+    "capability_requirements": [
+      "团队管理能力",
+      "危机处理能力",
+      "沟通协调能力",
+      "专业指导能力"
+    ],
+    "quality_requirements": [
+      "热爱托育事业",
+      "责任心强",
+      "具有良好的职业道德",
+      "身心健康"
+    ]
+  },
+  "manager_specific_info": {
+    "medical_education_combination": {
+      "forms": ["定期体检", "健康讲座"],
+      "partner_institutions": "社区卫生服务中心",
+      "cooperation_details": "每季度进行一次幼儿健康检查，每月开展一次家长健康讲座"
+    },
+    "recruitment_training": {
+      "shortage_positions": [
+        { "position": "主班教师", "count": 2 },
+        { "position": "保健医", "count": 1 }
+      ],
+      "education_requirements": [
+        { "position": "主班教师", "education": "大专及以上" },
+        { "position": "保育员", "education": "高中及以上" }
+      ],
+      "certificate_requirements": [
+        { "position": "主班教师", "certificates": ["教师资格证", "育婴师证"] },
+        { "position": "保健医", "certificates": ["医师执业证书/护士执业证书"] }
+      ],
+      "recruitment_channels": ["网络招聘", "校园招聘"],
+      "priority_factors": ["专业背景", "实践经验", "爱心与耐心"],
+      "training_needs": ["婴幼儿急救处理", "家园沟通技巧", "早期发展课程设计"],
+      "effective_training_modes": ["跟岗实习", "案例研讨"],
+      "graduate_issues": "理论与实践脱节，缺乏实际照护经验"
+    }
+  }
+}

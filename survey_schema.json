@@ -1,0 +1,172 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "行业调研数据采集标准结构",
+  "description": "基于20260127简版调研问卷的数据结构定义",
+  "type": "object",
+  "properties": {
+    "institution_info": {
+      "type": "object",
+      "title": "机构信息",
+      "properties": {
+        "name": { "type": "string", "description": "机构名称" },
+        "city": { "type": "string", "description": "所在城市" },
+        "subject_type": { 
+          "type": "string", 
+          "enum": ["公办", "民办", "公办民营/民办公助"],
+          "description": "机构举办主体"
+        },
+        "specific_form": {
+          "type": "string",
+          "enum": ["独立托育机构", "社区嵌入式托育", "幼儿园托班", "用人单位办托", "家庭托育点", "托育综合服务中心", "其他"],
+          "description": "机构具体形态"
+        },
+        "is_puhui": { "type": "boolean", "description": "是否为普惠托育" },
+        "service_modes": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["全日托", "半日托", "计时托", "临时托"] },
+          "description": "机构服务模式"
+        },
+        "total_capacity": { "type": "integer", "description": "机构托位总数" },
+        "current_enrollment": { "type": "integer", "description": "机构在园婴幼儿总数" },
+        "staff_count": { "type": "integer", "description": "机构员工总人数" }
+      },
+      "required": ["name", "city", "subject_type", "specific_form", "is_puhui", "service_modes", "total_capacity", "current_enrollment", "staff_count"]
+    },
+    "personal_info": {
+      "type": "object",
+      "title": "个人信息",
+      "properties": {
+        "gender": { "type": "string", "enum": ["男", "女"], "description": "填报人员性别" },
+        "education": { 
+          "type": "string", 
+          "enum": ["中职/高中", "高职专科", "高职本科", "普通本科", "硕士"],
+          "description": "最高学历"
+        },
+        "major": { "type": "string", "description": "最高学历所学专业" }
+      },
+      "required": ["gender", "education", "major"]
+    },
+    "employment_info": {
+      "type": "object",
+      "title": "从业信息",
+      "properties": {
+        "current_position": {
+          "type": "string",
+          "enum": ["保育员", "保健医", "保教主任", "主班教师", "副班教师", "园长/机构负责人", "行政人员"],
+          "description": "当前岗位"
+        },
+        "current_position_other": { "type": "string", "description": "行政人员具体注明" },
+        "job_change_interval": { "type": "string", "description": "从业以来更换托育机构的时间间隔" },
+        "job_change_reasons": { 
+          "type": "array", 
+          "items": { "type": "string" }, 
+          "maxItems": 3,
+          "description": "更换机构的原因"
+        },
+        "salary_range": { "type": "string", "description": "当前薪资范围" },
+        "is_kindergarten_transition": { "type": "boolean", "description": "是否从幼儿园班级教师转型成为托班教师" },
+        "transition_needs": { "type": "string", "description": "转型后需要提升的能力" }
+      },
+      "required": ["current_position", "job_change_interval", "salary_range", "is_kindergarten_transition"]
+    },
+    "position_details": {
+      "type": "object",
+      "title": "岗位相关信息",
+      "description": "根据当前岗位填写的具体信息",
+      "properties": {
+        "core_tasks": { 
+          "type": "array", 
+          "items": { "type": "string" },
+          "description": "岗位的核心工作任务"
+        },
+        "capability_requirements": { 
+          "type": "array", 
+          "items": { "type": "string" },
+          "description": "岗位的能力要求"
+        },
+        "quality_requirements": { 
+          "type": "array", 
+          "items": { "type": "string" },
+          "description": "岗位的素质素养要求"
+        }
+      }
+    },
+    "manager_specific_info": {
+      "type": "object",
+      "title": "园长/机构负责人专属信息",
+      "properties": {
+        "medical_education_combination": {
+          "type": "object",
+          "properties": {
+            "forms": { 
+              "type": "array", 
+              "items": { "type": "string" },
+              "description": "机构开展的医育结合的形式"
+            },
+            "partner_institutions": { "type": "string", "description": "合作医疗机构类型" },
+            "cooperation_details": { "type": "string", "description": "合作形式详情" }
+          }
+        },
+        "recruitment_training": {
+          "type": "object",
+          "properties": {
+            "shortage_positions": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "position": { "type": "string" },
+                  "count": { "type": "integer" }
+                }
+              },
+              "description": "紧缺岗位及数量"
+            },
+            "education_requirements": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "position": { "type": "string" },
+                  "education": { "type": "string" }
+                }
+              },
+              "description": "对不同岗位人员的学历要求"
+            },
+            "certificate_requirements": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "position": { "type": "string" },
+                  "certificates": { "type": "array", "items": { "type": "string" } }
+                }
+              },
+              "description": "对不同岗位人员必备证书要求"
+            },
+            "recruitment_channels": { 
+              "type": "array", 
+              "items": { "type": "string" },
+              "description": "机构人才招聘的主要渠道"
+            },
+            "priority_factors": { 
+              "type": "array", 
+              "items": { "type": "string" },
+              "description": "招聘时优先考虑的因素"
+            },
+            "training_needs": { 
+              "type": "array", 
+              "items": { "type": "string" },
+              "description": "希望加强员工哪方面的培训"
+            },
+            "effective_training_modes": { 
+              "type": "array", 
+              "items": { "type": "string" },
+              "description": "认为的最有效的人才培养模式"
+            },
+            "graduate_issues": { "type": "string", "description": "当前院校毕业生最大的问题" }
+          }
+        }
+      }
+    }
+  }
+}

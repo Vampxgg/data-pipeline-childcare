@@ -1,0 +1,48 @@
+{
+  "orgName": "竹泓镇中心幼儿园",
+  "orgNature": "民办",
+  "location": "江苏省泰州市兴化市",
+  "name": "",
+  "gender": "男",
+  "phone": "",
+  "education": "高职本科",
+  "currentPosition": "配班教师",
+  "yearsOfExperience": "",
+  "hasCertificate": "",
+  "interval": "3-5年",
+  "reason": [
+    "机构原因"
+  ],
+  "salaryRange": "5000-8000元",
+  "isFromTeacherToTeacher": "否",
+  "reasonFromTeacherToTeacher": "",
+  "orgType": "社区嵌入式托育",
+  "isPovertyFree": "否",
+  "serviceMode": [
+    "计时托",
+    "半日托",
+    "临时托"
+  ],
+  "totalSlots": "50",
+  "totalStaff": "690",
+  "totalChildren": "333333",
+  "educationMajor": "幼婴儿托育",
+  "responsibilities": "哈哈哈哈哈",
+  "trainingNeeds": "家园沟通",
+  "competency_matrix": {
+    "负责奉献，主动承担，乐于分享": "一般",
+    "严格遵守教师职业道德规范": "一般",
+    "尊重婴幼儿个体差异、平等对待每一位幼儿的理念": "一般",
+    "热爱本职，以德立身": "一般",
+    "善于自我情绪调节，保持平和心态与稳定情绪": "一般",
+    "言谈举止文明得体，仪表端庄大方": "一般",
+    "善于沟通协作，尊重他人、互相理解": "一般",
+    "自觉遵守幼儿园各项规章制度，坚守工作岗位、履职尽责": "一般",
+    "以热爱、尊重、平等的态度对待每一名幼儿": "一般",
+    "主动了解并满足幼儿身心发展的个性化需求，关注每名幼儿的成长进程": "一般",
+    "坚持正面教育与引导原则": "一般",
+    "遵守教育法律法规，严格执行机构保育与教育目标": "一般",
+    "灵活运用适宜的方法、手段与途径开展工作": "一般",
+    "持续学习、追求专业成长的进取意识": "一般"
+  }
+}

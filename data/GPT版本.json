@@ -1,0 +1,254 @@
+{
+  "meta": {
+    "surveyName": "行业调研数据采集-简版",
+    "version": "2026-01-27",
+    "submitTime": "2026-02-02 10:30:00",
+    "dataType": "test",
+    "note": "用于联调测试的完整样例数据，所有必填/必选/选填均已填写"
+  },
+  "institutionInfo": {
+    "institutionName": "星芽托育中心（示例）",
+    "city": "杭州市",
+    "organizerType": "民办",
+    "institutionForm": "社区嵌入式托育",
+    "isInclusiveChildcare": "是",
+    "serviceModes": [
+      "全日托",
+      "半日托",
+      "计时托",
+      "临时托"
+    ],
+    "totalSlots": 80,
+    "currentChildrenCount": 65,
+    "totalStaffCount": 18
+  },
+  "personalInfo": {
+    "gender": "女",
+    "highestEducation": "普通本科",
+    "highestEducationMajor": "学前教育"
+  },
+  "careerInfo": {
+    "currentPosition": "园长/机构负责人",
+    "jobChangeInterval": "1-3年",
+    "jobChangeReasons": [
+      "薪资待遇",
+      "职业发展空间",
+      "工作强度/工作压力"
+    ],
+    "currentSalaryRange": "10000-15000元/月",
+    "isTransferredFromKindergartenTeacher": "是",
+    "transferNeedImproveAbilities": "需要提升托育年龄段（0-3岁）照护能力、家长沟通与咨询能力、医育结合相关知识、机构运营管理能力。"
+  },
+  "jobRelatedInfo": {
+    "coreTasks": {
+      "nurseryCaregiver": [
+        "婴幼儿生活照护（喂养、如厕、午睡）",
+        "日常清洁与消毒",
+        "协助开展活动",
+        "观察记录婴幼儿状态",
+        "与家长沟通反馈"
+      ],
+      "leadTeacherAndAssistantTeacher": [
+        "组织一日生活与游戏活动",
+        "课程与活动设计实施",
+        "观察评估与成长记录",
+        "家园沟通与家长工作",
+        "班级安全管理"
+      ],
+      "educationDirector": [
+        "课程体系建设与质量督导",
+        "教师教研组织与指导",
+        "教学评估与改进",
+        "班级管理与协同",
+        "家长满意度与服务提升"
+      ],
+      "healthCareDoctor": [
+        "健康检查与健康档案管理",
+        "传染病预防与应急处理",
+        "营养膳食指导",
+        "卫生消毒与环境安全督导",
+        "健康宣教与家长咨询"
+      ],
+      "principalOrLeader": [
+        "机构运营管理与招生管理",
+        "人员管理与团队建设",
+        "安全管理与风险控制",
+        "课程与服务质量管理",
+        "对外合作与资源整合",
+        "政策对接与备案合规管理"
+      ]
+    },
+    "abilityRequirements": {
+      "nurseryCaregiver": [
+        "婴幼儿照护技能",
+        "卫生消毒与安全防护能力",
+        "观察与记录能力",
+        "沟通协作能力",
+        "突发情况应急处理能力"
+      ],
+      "leadTeacherAndAssistantTeacher": [
+        "0-3岁发展规律理解与应用",
+        "活动组织与引导能力",
+        "观察评估与个性化支持能力",
+        "家园沟通能力",
+        "班级管理能力"
+      ],
+      "educationDirector": [
+        "课程研发与质量评估能力",
+        "教研组织与培训能力",
+        "跨岗位协同与管理能力",
+        "数据分析与改进能力",
+        "服务体系优化能力"
+      ],
+      "healthCareDoctor": [
+        "儿童保健专业能力",
+        "传染病防控与应急能力",
+        "营养与膳食管理能力",
+        "健康宣教能力",
+        "医疗合作对接能力"
+      ],
+      "principalOrLeader": [
+        "机构运营管理能力",
+        "团队领导力与组织协调能力",
+        "风险管理与安全管理能力",
+        "家长服务与品牌建设能力",
+        "政策理解与合规能力",
+        "资源整合与合作拓展能力"
+      ]
+    },
+    "qualityLiteracyRequirements": {
+      "nurseryCaregiver": [
+        "责任心强",
+        "耐心细致",
+        "服务意识",
+        "安全意识",
+        "学习能力"
+      ],
+      "leadTeacherAndAssistantTeacher": [
+        "爱心与同理心",
+        "职业道德",
+        "沟通表达能力",
+        "抗压能力",
+        "团队合作意识"
+      ],
+      "educationDirector": [
+        "专业引领意识",
+        "责任意识",
+        "创新意识",
+        "组织协调能力",
+        "持续学习意识"
+      ],
+      "healthCareDoctor": [
+        "严谨性",
+        "责任意识",
+        "职业规范意识",
+        "沟通与服务意识",
+        "风险意识"
+      ],
+      "principalOrLeader": [
+        "战略思维",
+        "责任担当",
+        "服务意识",
+        "合规意识",
+        "抗压能力",
+        "持续学习与创新意识"
+      ]
+    }
+  },
+  "principalOnlySection": {
+    "medicalEducationIntegration": {
+      "integrationForms": [
+        "医疗机构提供专业支持",
+        "定期健康检查/体检",
+        "健康宣教与家长讲座",
+        "传染病防控指导"
+      ],
+      "cooperatedMedicalInstitutionTypes": "社区卫生服务中心、妇幼保健院",
+      "cooperationForms": "定期驻点健康检查；建立绿色转诊通道；传染病防控培训；膳食营养指导与健康宣教活动。"
+    },
+    "talentRecruitmentAndTraining": {
+      "urgentPositionsAndCounts": [
+        {
+          "position": "主班教师",
+          "count": 2
+        },
+        {
+          "position": "保育员",
+          "count": 3
+        },
+        {
+          "position": "保健医",
+          "count": 1
+        },
+        {
+          "position": "实习生",
+          "count": 2
+        }
+      ],
+      "educationRequirementsByPosition": {
+        "保育员": "中职",
+        "主班教师": "普通本科",
+        "副班教师": "高职专科",
+        "保健医": "普通本科",
+        "保教主任": "普通本科",
+        "园长/机构负责人": "硕士研究生"
+      },
+      "certificateRequirementsByPosition": {
+        "保育员": [
+          "育婴员证书",
+          "保育师证书"
+        ],
+        "主班教师": [
+          "教师资格证",
+          "婴幼儿发展引导员证书"
+        ],
+        "副班教师": [
+          "教师资格证"
+        ],
+        "保健医": [
+          "护士执业资格证",
+          "保健医证"
+        ],
+        "保教主任": [
+          "教师资格证",
+          "其他(请注明:教研培训证书)"
+        ],
+        "园长/机构负责人": [
+          "无必备证书要求",
+          "其他(请注明:托育机构负责人培训合格证明)"
+        ]
+      },
+      "mainRecruitmentChannels": [
+        "Boss直聘",
+        "智联招聘",
+        "熟人推荐",
+        "机构自有渠道:官网、公众号",
+        "本地公众号",
+        "其他(请注明:高校就业群/校企合作渠道)"
+      ],
+      "priorityFactorsWhenHiring": [
+        "相关工作经验",
+        "稳定性",
+        "沟通能力",
+        "专业技能水平",
+        "责任心与职业素养"
+      ],
+      "trainingNeedsToStrengthen": [
+        "0-3岁婴幼儿发展与保教能力",
+        "医育结合与健康管理",
+        "家长沟通与咨询技巧",
+        "应急救护与安全管理",
+        "课程设计与活动组织",
+        "团队协作与执行力"
+      ],
+      "mostEffectiveTalentTrainingModels": [
+        "师徒带教",
+        "岗前集中培训+考核",
+        "在岗教研与案例复盘",
+        "外部专家培训",
+        "校企合作联合培养"
+      ],
+      "biggestProblemsOfNewGraduates": "实践经验不足，对0-3岁婴幼儿照护细节不熟悉，家长沟通能力较弱，职业稳定性不高，抗压能力有待提升。"
+    }
+  }
+}

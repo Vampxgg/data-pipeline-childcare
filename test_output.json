@@ -1,0 +1,16 @@
+{
+  "status": "success",
+  "data": {
+    "orgNature": "民办",
+    "serviceMode": [
+      "计时托",
+      "半日托"
+    ],
+    "competency_matrix": {
+      "热爱本职，以德立身": "一般",
+      "负责奉献，主动承担，乐于分享": "重要"
+    },
+    "salaryRange": "5000-8000元",
+    "unknown_field": "keep_original"
+  }
+}
