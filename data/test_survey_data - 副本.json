@@ -1,0 +1,37 @@
+{
+  "institution_info": {
+    "name": "阳光贝贝托育中心" },
+  "personal_info": {
+    "gender": "女",
+    "education": "普通本科",
+    "major": "学前教育"
+  },
+  "employment_info": {
+    "current_position": "园长/机构负责人",
+    "current_position_other": "",
+    "job_change_interval": "3-5年",
+    "job_change_reasons": ["个人职业发展", "薪资待遇"],
+    "salary_range": "8000-10000元",
+    "is_kindergarten_transition": true,
+    "transition_needs": "0-3岁婴幼儿照护技能"
+  },
+  "position_details": {
+    "core_tasks": [
+      "制定机构发展规划",
+      "负责日常运营管理",
+      "统筹安全卫生工作",
+      "家园沟通与社区合作"
+    ],
+    "capability_requirements": [
+      "团队管理能力",
+      "危机处理能力",
+      "沟通协调能力",
+      "专业指导能力"
+    ],
+    "quality_requirements": [
+      "热爱托育事业",
+      "责任心强",
+      "具有良好的职业道德",
+      "身心健康"
+    ]
+  }}

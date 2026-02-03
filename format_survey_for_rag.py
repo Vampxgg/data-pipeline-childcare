@@ -1,293 +1,532 @@
 import json
-import datetime
 import re
+import os
+import datetime
 import traceback
 
-def safe_parse_json(input_data):
-    """
-    尝试将输入解析为字典或列表，处理字符串、Markdown代码块、包含额外文本的情况。
-    """
-    if isinstance(input_data, (dict, list)):
-        return input_data
-    
-    if isinstance(input_data, str):
-        input_data = input_data.strip()
-        # 1. 尝试直接解析
-        try:
-            return json.loads(input_data)
-        except json.JSONDecodeError:
-            pass
-            
-        # 2. 尝试提取 Markdown 代码块 (```json ... ```)
-        match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', input_data, re.IGNORECASE)
-        if match:
-            try:
-                return json.loads(match.group(1))
-            except:
-                pass
-        
-        # 3. 尝试寻找最外层的 JSON 对象或数组
-        try:
-            start_brace = input_data.find('{')
-            start_bracket = input_data.find('[')
-            
-            start = -1
-            if start_brace != -1 and start_bracket != -1:
-                start = min(start_brace, start_bracket)
-            elif start_brace != -1:
-                start = start_brace
-            elif start_bracket != -1:
-                start = start_bracket
-                
-            if start != -1:
-                # 简单启发式：找最后一个对应的闭合符号
-                end_brace = input_data.rfind('}')
-                end_bracket = input_data.rfind(']')
-                end = max(end_brace, end_bracket)
-                
-                if end > start:
-                    potential_json = input_data[start:end+1]
-                    return json.loads(potential_json)
-        except:
-            pass
-            
-    # 如果都失败了，返回空字典
-    return {}
+# ==========================================
+# 1. Configuration & Mappings
+# ==========================================
 
-def safe_get(data, keys, default=""):
-    """Safely get nested dictionary values."""
-    current = data
-    for key in keys:
-        if isinstance(current, dict):
-            current = current.get(key)
-            if current is None:
-                return default
+# Map snake_case fields in JSON Schema to camelCase keys in formConfig.ts
+SCHEMA_TO_CONFIG_KEY = {
+    # Institution Info
+    "institution_info.name": "orgName",
+    "institution_info.city": "location",
+    "institution_info.subject_type": "orgNature",
+    "institution_info.specific_form": "orgType",
+    "institution_info.is_puhui": "isPovertyFree",
+    "institution_info.service_modes": "serviceMode",
+    "institution_info.total_capacity": "totalSlots",
+    "institution_info.current_enrollment": "totalChildren",
+    "institution_info.staff_count": "totalStaff",
+    
+    # Personal Info
+    "personal_info.gender": "gender",
+    "personal_info.education": "education",
+    "personal_info.major": "educationMajor",
+    
+    # Employment Info
+    "employment_info.current_position": "currentPosition",
+    "employment_info.job_change_interval": "interval",
+    "employment_info.job_change_reasons": "reason",
+    "employment_info.salary_range": "salaryRange",
+    "employment_info.is_kindergarten_transition": "isFromTeacherToTeacher",
+    "employment_info.transition_needs": "reasonFromTeacherToTeacher", # Note: Schema says needs, config says reason. Keeping mapping for safety.
+    
+    # Position Details
+    "position_details.core_tasks": "coreTasks",
+    "position_details.capability_requirements": ["trainingNeeds", "careSkills"], # Might be one of these
+    "position_details.quality_requirements": "competency_matrix",
+    
+    # Manager Specific Info (Partial mappings based on available config)
+    "manager_specific_info.future_talent_needs": "futureTalentNeeds",
+    "manager_specific_info.suggestions": "suggestions"
+}
+
+# ==========================================
+# 2. Helper Functions: Config Parsing
+# ==========================================
+
+def parse_ts_config(file_path):
+    """
+    Parses formConfig.ts to extract label mappings.
+    Returns: { 'field_key': { 'type': 'options/matrix', 'map': {...} } }
+    """
+    if not os.path.exists(file_path):
+        print(f"Warning: Config file not found at {file_path}")
+        return {}
+
+    with open(file_path, 'r', encoding='utf-8') as f:
+        content = f.read()
+
+    mappings = {}
+    
+    # 1. Find all keys
+    key_pattern = re.compile(r"key:\s*['\"]([^'\"]+)['\"]")
+    keys = []
+    for match in key_pattern.finditer(content):
+        keys.append((match.group(1), match.start()))
+    
+    # 2. Extract options for each key
+    for i, (key_name, start_pos) in enumerate(keys):
+        end_pos = keys[i+1][1] if i + 1 < len(keys) else len(content)
+        block_content = content[start_pos:end_pos]
+        
+        # A. Options (Select/Radio/Checkbox)
+        options_match = re.search(r"options:\s*\[(.*?)\]", block_content, re.DOTALL)
+        if options_match:
+            options_str = options_match.group(1)
+            opt_map = {}
+            # Match label:'...', value:'...'
+            items = re.finditer(r"label:\s*['\"]([^'\"]+)['\"].*?value:\s*(['\"]?)([^'\"}\s,]+)\2", options_str, re.DOTALL)
+            for item in items:
+                label = item.group(1)
+                val = item.group(3)
+                opt_map[val] = label
+            
+            if opt_map:
+                mappings[key_name] = {'type': 'options', 'map': opt_map}
+                continue
+
+        # B. Matrix
+        rows_match = re.search(r"rows:\s*\[(.*?)\]", block_content, re.DOTALL)
+        cols_match = re.search(r"columns:\s*\[(.*?)\]", block_content, re.DOTALL)
+        
+        if rows_match and cols_match:
+            row_map = {}
+            col_map = {}
+            
+            for item in re.finditer(r"label:\s*['\"]([^'\"]+)['\"].*?value:\s*(['\"]?)([^'\"}\s,]+)\2", rows_match.group(1), re.DOTALL):
+                row_map[item.group(3)] = item.group(1)
+            
+            for item in re.finditer(r"label:\s*['\"]([^'\"]+)['\"].*?value:\s*(['\"]?)([^'\"}\s,]+)\2", cols_match.group(1), re.DOTALL):
+                col_map[item.group(3)] = item.group(1)
+                
+            mappings[key_name] = {'type': 'matrix', 'rows': row_map, 'cols': col_map}
+    print(mappings)
+    return mappings
+
+def get_label(value, config_key, mappings):
+    """
+    Translates a value (code) to a label using the mappings.
+    """
+    if value is None or value == "":
+        return "N/A"
+        
+    # Handle boolean -> Yes/No if mapped, otherwise default
+    if isinstance(value, bool):
+        # Check if there's a mapping for 'yes'/'no' or 'true'/'false'
+        # Usually frontend sends 'yes'/'no' strings for radios, but JSON might have bools
+        pass 
+
+    if config_key not in mappings:
+        # Special handling for booleans if no mapping
+        if isinstance(value, bool):
+            return "是" if value else "否"
+        return str(value)
+
+    config = mappings[config_key]
+    
+    if config['type'] == 'options':
+        mapping = config['map']
+        if isinstance(value, list):
+            return ", ".join([mapping.get(str(v), str(v)) for v in value])
+        else:
+            # Try exact match, then string match
+            return mapping.get(value, mapping.get(str(value), str(value)))
+            
+    elif config['type'] == 'matrix':
+        if isinstance(value, dict):
+            # Format matrix as a list of "Row: Col"
+            items = []
+            for r_k, c_k in value.items():
+                r_label = config['rows'].get(str(r_k), str(r_k))
+                c_label = config['cols'].get(str(c_k), str(c_k))
+                items.append(f"{r_label}: {c_label}")
+            return "; ".join(items)
+            
+    return str(value)
+
+# ==========================================
+# 3. Data Processing & Markdown Generation
+# ==========================================
+
+def safe_get(data, path, default=None):
+    curr = data
+    for key in path.split('.'):
+        if isinstance(curr, dict) and key in curr:
+            curr = curr[key]
         else:
             return default
-    return current if current is not None else default
+    return curr
 
-def format_list(items, title):
-    """Format a list of strings into a Markdown list."""
-    if not items or not isinstance(items, list):
+def format_section_list(title, items):
+    if not items:
         return ""
-    
     md = f"### {title}\n"
-    has_content = False
-    
     for item in items:
-        if isinstance(item, str) and item.strip():
-            md += f"- {item}\n"
-            has_content = True
-        elif isinstance(item, dict):
-            # Handle complex objects like shortage_positions
-            parts = []
-            for k, v in item.items():
-                if v:
-                    parts.append(f"{k}: {v}")
-            if parts:
-                md += f"- {', '.join(parts)}\n"
-                has_content = True
-                
-    if has_content:
-        md += "\n"
-        return md
-    return ""
+        md += f"- {item}\n"
+    md += "\n"
+    return md
 
-def main(survey_data_input):
+def format_survey_data(survey_data, mappings):
     """
-    Main function to transform survey JSON data into Markdown for RAG.
-    Designed for Dify code execution.
+    Main function to format the survey dict into Markdown.
+    """
+    lines = []
     
-    Args:
-        survey_data_input (str/dict): The input JSON data
-        
-    Returns:
-        dict: Contains 'markdown_content' and 'document_name'
-    """
-    try:
-        # 1. Robust Parsing
-        survey_data = safe_parse_json(survey_data_input)
-        
-        if not isinstance(survey_data, dict) or not survey_data:
-            # Fallback: if parsing failed but input is not empty, maybe return error
-            return {
-                "markdown_content": "Error: Invalid JSON input or empty data.",
-                "document_name": "Error_Report"
-            }
+    # --- Header ---
+    inst_name = safe_get(survey_data, "institution_info.name", "未知机构")
+    position = safe_get(survey_data, "employment_info.current_position", "未知岗位")
+    # Translate position if possible
+    position = get_label(position, "currentPosition", mappings)
+    
+    city = safe_get(survey_data, "institution_info.city", "未知城市")
+    date_str = datetime.date.today().isoformat()
+    
+    lines.append(f"# 行业调研报告：{inst_name} - {position}")
+    lines.append(f"> 采集日期: {date_str} | 城市: {city}")
+    lines.append("")
 
-        # Extract basic info for title
-        inst_name = safe_get(survey_data, ["institution_info", "name"], "未知机构")
-        position = safe_get(survey_data, ["employment_info", "current_position"], "未知岗位")
-        city = safe_get(survey_data, ["institution_info", "city"], "未知城市")
+    # --- 1. 机构概况 ---
+    lines.append("## 1. 机构概况")
+    info = survey_data.get("institution_info", {})
+    
+    fields_1 = [
+        ("名称", "name", "orgName"),
+        ("性质", "subject_type", "orgNature"),
+        ("形态", "specific_form", "orgType"),
+        ("普惠", "is_puhui", "isPovertyFree"),
+        ("服务模式", "service_modes", "serviceMode"),
+        ("规模", None, None) # Composite field
+    ]
+    
+    for label, key, config_key in fields_1:
+        if key:
+            val = info.get(key)
+            display_val = get_label(val, config_key, mappings)
+            lines.append(f"- **{label}**: {display_val}")
+        elif label == "规模":
+            cap = info.get("total_capacity", 0)
+            enr = info.get("current_enrollment", 0)
+            stf = info.get("staff_count", 0)
+            lines.append(f"- **规模**: 托位 {cap} / 在园 {enr} / 员工 {stf}")
+    lines.append("")
+
+    # --- 2. 受访者画像 ---
+    lines.append("## 2. 受访者画像")
+    personal = survey_data.get("personal_info", {})
+    employ = survey_data.get("employment_info", {})
+    
+    gender = get_label(personal.get("gender"), "gender", mappings)
+    edu = get_label(personal.get("education"), "education", mappings)
+    major = personal.get("major", "N/A")
+    lines.append(f"- **基本信息**: {gender} | {edu} ({major})")
+    
+    curr_pos = get_label(employ.get("current_position"), "currentPosition", mappings)
+    lines.append(f"- **当前岗位**: {curr_pos}")
+    if employ.get("current_position_other"):
+        lines.append(f"  - 备注: {employ.get('current_position_other')}")
         
-        # Current date for metadata
-        today = datetime.date.today().isoformat()
+    salary = get_label(employ.get("salary_range"), "salaryRange", mappings)
+    lines.append(f"- **薪资范围**: {salary}")
+    
+    interval = get_label(employ.get("job_change_interval"), "interval", mappings)
+    lines.append(f"- **换岗频率**: {interval}")
+    
+    reasons = employ.get("job_change_reasons")
+    if reasons:
+        reasons_str = get_label(reasons, "reason", mappings)
+        lines.append(f"- **换岗原因**: {reasons_str}")
         
-        # --- Build Markdown Content ---
-        md_lines = []
+    is_trans = employ.get("is_kindergarten_transition")
+    if is_trans: # Only show if true or present
+        trans_str = get_label(is_trans, "isFromTeacherToTeacher", mappings)
+        lines.append(f"- **幼儿园转型**: {trans_str}")
+        needs = employ.get("transition_needs")
+        if needs:
+             lines.append(f"- **转型提升需求**: {needs}")
+    lines.append("")
+
+    # --- 3. 岗位详情 ---
+    pos_details = survey_data.get("position_details", {})
+    if pos_details:
+        lines.append("## 3. 岗位详情")
         
-        # Title
-        md_lines.append(f"# 行业调研报告：{inst_name} - {position}")
-        md_lines.append(f"> 采集日期: {today} | 城市: {city}")
-        md_lines.append("")
-        
-        # 1. 机构概况
-        inst_info = survey_data.get("institution_info", {})
-        if isinstance(inst_info, dict):
-            md_lines.append("## 1. 机构概况")
-            md_lines.append(f"- **名称**: {inst_info.get('name', 'N/A')}")
-            md_lines.append(f"- **性质**: {inst_info.get('subject_type', 'N/A')}")
-            md_lines.append(f"- **形态**: {inst_info.get('specific_form', 'N/A')}")
-            
-            is_puhui = inst_info.get('is_puhui')
-            puhui_str = '是' if is_puhui is True else '否' if is_puhui is False else 'N/A'
-            md_lines.append(f"- **普惠**: {puhui_str}")
-            
-            service_modes = inst_info.get("service_modes", [])
-            if isinstance(service_modes, list):
-                md_lines.append(f"- **服务模式**: {', '.join([str(m) for m in service_modes if m])}")
+        # Core Tasks
+        tasks = pos_details.get("core_tasks")
+        if tasks:
+            # Try to translate tasks if they are keys
+            # Assuming 'coreTasks' config exists
+            task_labels = []
+            if isinstance(tasks, list):
+                # We need to map each item individually because get_label for list joins them
+                # But here we want a markdown list
+                config = mappings.get("coreTasks", {})
+                mapping = config.get('map', {})
+                for t in tasks:
+                    task_labels.append(mapping.get(str(t), str(t)))
             else:
-                md_lines.append(f"- **服务模式**: {str(service_modes)}")
+                task_labels.append(str(tasks))
             
-            md_lines.append(f"- **规模**: 托位 {inst_info.get('total_capacity', 0)} / 在园 {inst_info.get('current_enrollment', 0)} / 员工 {inst_info.get('staff_count', 0)}")
-            md_lines.append("")
-        
-        # 2. 受访者画像
-        personal = survey_data.get("personal_info", {})
-        employment = survey_data.get("employment_info", {})
-        
-        md_lines.append("## 2. 受访者画像")
-        if isinstance(personal, dict):
-            md_lines.append(f"- **基本信息**: {personal.get('gender', 'N/A')} | {personal.get('education', 'N/A')} ({personal.get('major', 'N/A')})")
-        
-        if isinstance(employment, dict):
-            md_lines.append(f"- **当前岗位**: {employment.get('current_position', 'N/A')}")
-            if employment.get('current_position') == "行政人员":
-                md_lines.append(f"  - 备注: {employment.get('current_position_other', '')}")
-                
-            md_lines.append(f"- **薪资范围**: {employment.get('salary_range', 'N/A')}")
-            md_lines.append(f"- **换岗频率**: {employment.get('job_change_interval', 'N/A')}")
+            lines.append(format_section_list("核心工作任务", task_labels))
             
-            reasons = employment.get("job_change_reasons", [])
-            if isinstance(reasons, list) and reasons:
-                md_lines.append(f"- **换岗原因**: {', '.join([str(r) for r in reasons if r])}")
+        # Capability Requirements
+        caps = pos_details.get("capability_requirements")
+        if caps:
+            # Mapping might be 'trainingNeeds' or 'careSkills' depending on role
+            # We try both or just show raw if not found
+            # A simple heuristic: check if values match keys in trainingNeeds
+            cap_labels = []
+            if isinstance(caps, list):
+                # Try finding a mapping
+                found_map = {}
+                for key in ["trainingNeeds", "careSkills"]:
+                    if key in mappings:
+                        m = mappings[key]['map']
+                        # Check if any cap is in this map
+                        if any(str(c) in m for c in caps):
+                            found_map = m
+                            break
                 
-            if employment.get("is_kindergarten_transition"):
-                md_lines.append(f"- **幼儿园转型**: 是")
-                md_lines.append(f"- **转型提升需求**: {employment.get('transition_needs', 'N/A')}")
-        md_lines.append("")
-        
-        # 3. 岗位详情 (核心任务 & 能力要求)
-        pos_details = survey_data.get("position_details", {})
-        if isinstance(pos_details, dict) and pos_details:
-            md_lines.append("## 3. 岗位详情")
-            md_lines.append(format_list(pos_details.get("core_tasks", []), "核心工作任务"))
-            md_lines.append(format_list(pos_details.get("capability_requirements", []), "能力要求"))
-            md_lines.append(format_list(pos_details.get("quality_requirements", []), "素质素养要求"))
+                for c in caps:
+                    cap_labels.append(found_map.get(str(c), str(c)))
+            else:
+                cap_labels.append(str(caps))
             
-        # 4. 管理视角 (仅园长/负责人)
-        # 宽松匹配岗位名称
-        manager_keywords = ["园长", "负责人", "管理"]
-        is_manager = False
-        if position:
-            for kw in manager_keywords:
-                if kw in position:
-                    is_manager = True
-                    break
-        
-        manager_info = survey_data.get("manager_specific_info", {})
-        if isinstance(manager_info, dict) and manager_info and is_manager:
-            md_lines.append("## 4. 管理视角")
+            lines.append(format_section_list("能力/培训需求", cap_labels))
             
-            # 医育结合
-            med_edu = manager_info.get("medical_education_combination", {})
-            if isinstance(med_edu, dict) and med_edu:
-                has_med_content = False
-                forms = med_edu.get("forms", [])
-                if isinstance(forms, list) and forms:
-                    has_med_content = True
-                
-                if has_med_content or med_edu.get('partner_institutions') or med_edu.get('cooperation_details'):
-                    md_lines.append("### 医育结合")
-                    if forms:
-                        md_lines.append(f"- **开展形式**: {', '.join([str(f) for f in forms if f])}")
-                    
-                    # 检查是否有外部合作
-                    has_coop = False
-                    if forms:
-                         for f in forms:
-                             if "医疗机构" in str(f) or "合作" in str(f):
-                                 has_coop = True
-                                 break
-                    
-                    if has_coop or med_edu.get('partner_institutions'):
-                        md_lines.append(f"- **合作机构**: {med_edu.get('partner_institutions', 'N/A')}")
-                        md_lines.append(f"- **合作详情**: {med_edu.get('cooperation_details', 'N/A')}")
-                    md_lines.append("")
-            
-            # 招聘与培养
-            recruit = manager_info.get("recruitment_training", {})
-            if isinstance(recruit, dict) and recruit:
-                md_lines.append("### 招聘与培养")
-                
-                # 紧缺岗位
-                shortage = recruit.get("shortage_positions", [])
-                if isinstance(shortage, list) and shortage:
-                    md_lines.append("- **紧缺岗位**:")
-                    for item in shortage:
-                        if isinstance(item, dict):
-                            md_lines.append(f"  - {item.get('position', '未知')}: {item.get('count', 0)}人")
-                
-                # 学历要求
-                edu_reqs = recruit.get("education_requirements", [])
-                if isinstance(edu_reqs, list) and edu_reqs:
-                    md_lines.append("- **学历要求**:")
-                    for item in edu_reqs:
-                        if isinstance(item, dict):
-                            md_lines.append(f"  - {item.get('position', '未知')}: {item.get('education', 'N/A')}")
-                        
-                # 证书要求
-                cert_reqs = recruit.get("certificate_requirements", [])
-                if isinstance(cert_reqs, list) and cert_reqs:
-                    md_lines.append("- **证书要求**:")
-                    for item in cert_reqs:
-                        if isinstance(item, dict):
-                            certs = item.get('certificates', [])
-                            if isinstance(certs, list):
-                                certs_str = ", ".join([str(c) for c in certs])
-                            else:
-                                certs_str = str(certs)
-                            md_lines.append(f"  - {item.get('position', '未知')}: {certs_str}")
+        # Quality Requirements (Matrix)
+        quals = pos_details.get("quality_requirements")
+        if quals:
+            lines.append("### 素质素养要求")
+            if isinstance(quals, dict):
+                # Use get_label logic for matrix but format as list
+                config = mappings.get("competency_matrix", {})
+                if config.get('type') == 'matrix':
+                    for r_k, c_k in quals.items():
+                        r_label = config['rows'].get(str(r_k), str(r_k))
+                        c_label = config['cols'].get(str(c_k), str(c_k))
+                        lines.append(f"- {r_label}: **{c_label}**")
+                else:
+                    for k, v in quals.items():
+                        lines.append(f"- {k}: {v}")
+            elif isinstance(quals, list):
+                for q in quals:
+                    lines.append(f"- {q}")
+            lines.append("")
 
-                channels = recruit.get('recruitment_channels', [])
-                if isinstance(channels, list) and channels:
-                     md_lines.append(f"- **招聘渠道**: {', '.join([str(c) for c in channels])}")
-                
-                factors = recruit.get('priority_factors', [])
-                if isinstance(factors, list) and factors:
-                     md_lines.append(f"- **优先因素**: {', '.join([str(f) for f in factors])}")
-                
-                needs = recruit.get('training_needs', [])
-                if isinstance(needs, list) and needs:
-                     md_lines.append(f"- **培训需求**: {', '.join([str(n) for n in needs])}")
-                
-                modes = recruit.get('effective_training_modes', [])
-                if isinstance(modes, list) and modes:
-                     md_lines.append(f"- **有效培养模式**: {', '.join([str(m) for m in modes])}")
-                
-                if recruit.get('graduate_issues'):
-                    md_lines.append(f"- **毕业生问题**: {recruit.get('graduate_issues', 'N/A')}")
+    # --- 4. 管理视角 (园长/负责人) ---
+    manager = survey_data.get("manager_specific_info", {})
+    if manager:
+        lines.append("## 4. 管理视角")
+        
+        # 4.1 医育结合
+        med = manager.get("medical_education_combination", {})
+        if med:
+            lines.append("### 医育结合")
+            forms = med.get("forms", [])
+            if forms:
+                lines.append(f"- **开展形式**: {', '.join(forms)}")
+            if med.get("partner_institutions"):
+                lines.append(f"- **合作机构**: {med.get('partner_institutions')}")
+            if med.get("cooperation_details"):
+                lines.append(f"- **合作详情**: {med.get('cooperation_details')}")
+            lines.append("")
 
-        final_markdown = "\n".join(md_lines)
+        # 4.2 招聘与培养
+        rec = manager.get("recruitment_training", {})
+        if rec:
+            lines.append("### 招聘与培养")
+            
+            # Shortage Positions
+            shortage = rec.get("shortage_positions", [])
+            if shortage:
+                lines.append("- **紧缺岗位**:")
+                for item in shortage:
+                    p = item.get("position", "未知")
+                    c = item.get("count", 0)
+                    lines.append(f"  - {p}: {c}人")
+            
+            # Education Reqs
+            edu_reqs = rec.get("education_requirements", [])
+            if edu_reqs:
+                lines.append("- **学历要求**:")
+                for item in edu_reqs:
+                    p = item.get("position", "未知")
+                    e = item.get("education", "N/A")
+                    lines.append(f"  - {p}: {e}")
+            
+            # Certificate Reqs
+            cert_reqs = rec.get("certificate_requirements", [])
+            if cert_reqs:
+                lines.append("- **证书要求**:")
+                for item in cert_reqs:
+                    p = item.get("position", "未知")
+                    cs = item.get("certificates", [])
+                    cs_str = ", ".join(cs) if isinstance(cs, list) else str(cs)
+                    lines.append(f"  - {p}: {cs_str}")
+            
+            # Other Lists
+            for field_key, field_label in [
+                ("recruitment_channels", "招聘渠道"),
+                ("priority_factors", "优先因素"),
+                ("training_needs", "培训需求"),
+                ("effective_training_modes", "有效培养模式")
+            ]:
+                val = rec.get(field_key)
+                if val:
+                    val_str = ", ".join(val) if isinstance(val, list) else str(val)
+                    lines.append(f"- **{field_label}**: {val_str}")
+            
+            if rec.get("graduate_issues"):
+                lines.append(f"- **毕业生问题**: {rec.get('graduate_issues')}")
+                
+        # 4.3 Future & Suggestions (from Config Step 5)
+        future = manager.get("future_talent_needs") # Schema key might differ, checking logic
+        # Schema doesn't explicitly list 'future_talent_needs' in the snippet I saw, 
+        # but 'step5Fields' in config has it. 
+        # If it's in the data under manager_specific_info (or root?), we handle it.
+        # Assuming it might be in manager_specific_info based on context.
+        if future:
+             # Try mapping
+             future_str = get_label(future, "futureTalentNeeds", mappings)
+             lines.append(f"- **未来人才需求**: {future_str}")
+             
+        sugg = manager.get("suggestions")
+        if sugg:
+            lines.append(f"- **建议**: {sugg}")
+
+    return "\n".join(lines)
+
+
+# ==========================================
+# 4. Metadata Extraction
+# ==========================================
+
+def extract_metadata(survey_data, mappings):
+    """
+    Extracts structured metadata for RAG filtering.
+    Returns a flat dictionary suitable for vector database metadata.
+    """
+    info = survey_data.get("institution_info", {})
+    personal = survey_data.get("personal_info", {})
+    employ = survey_data.get("employment_info", {})
+    
+    # Helper to get label or raw value
+    def _get(val, key):
+        return get_label(val, key, mappings)
+
+    metadata = {
+        # Institution Filters
+        "org_name": info.get("name"),
+        "city": info.get("city"),
+        "org_nature": _get(info.get("subject_type"), "orgNature"),
+        "org_type": _get(info.get("specific_form"), "orgType"),
+        "is_puhui": _get(info.get("is_puhui"), "isPovertyFree"),
+        
+        # Personal Filters
+        "gender": _get(personal.get("gender"), "gender"),
+        "education": _get(personal.get("education"), "education"),
+        "major": personal.get("major"),
+        
+        # Job Filters
+        "position": _get(employ.get("current_position"), "currentPosition"),
+        "salary_range": _get(employ.get("salary_range"), "salaryRange"),
+        "job_change_interval": _get(employ.get("job_change_interval"), "interval"),
+        
+        # Timestamp
+        "processed_at": datetime.date.today().isoformat()
+    }
+    return metadata
+
+# ==========================================
+# 5. Main Execution
+# ==========================================
+
+def main(survey_data_input, config_path=None):
+    """
+    Entry point.
+    args:
+        survey_data_input: dict or json string
+        config_path: path to formConfig.ts
+    """
+    # 1. Parse Input
+    if isinstance(survey_data_input, str):
+        try:
+            survey_data = json.loads(survey_data_input)
+        except:
+            # Try simple cleanup
+            try:
+                clean = survey_data_input.strip()
+                if clean.startswith("```json"):
+                    clean = clean[7:-3].strip()
+                elif clean.startswith("```"):
+                    clean = clean[3:-3].strip()
+                survey_data = json.loads(clean)
+            except Exception as e:
+                return {"error": f"Invalid JSON input: {e}"}
+    else:
+        survey_data = survey_data_input
+
+    # 2. Parse Config
+    mappings = {}
+    if config_path and os.path.exists(config_path):
+        try:
+            mappings = parse_ts_config(config_path)
+        except Exception as e:
+            print(f"Error parsing config: {e}")
+            # Continue without mappings
+    
+    # 3. Format
+    try:
+        markdown = format_survey_data(survey_data, mappings)
+        metadata = extract_metadata(survey_data, mappings)
+        
+        # Generate filename
+        inst = safe_get(survey_data, "institution_info.name", "Survey")
+        pos = safe_get(survey_data, "employment_info.current_position", "User")
+        date = datetime.date.today().strftime("%Y%m%d")
+        doc_name = f"调研报告_{inst}_{pos}_{date}"
         
         return {
-            "markdown_content": final_markdown,
-            "document_name": f"调研_{inst_name}_{position}_{today}",
-            "raw_data_preview": str(survey_data)[:200] + "..." # Optional debug info
+            "markdown_content": markdown,
+            "metadata": metadata,
+            "document_name": doc_name
         }
-
     except Exception as e:
         return {
             "error": str(e),
             "traceback": traceback.format_exc()
         }
+
+if __name__ == "__main__":
+    # Local Test
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    data_dir = os.path.join(base_dir, "data")
+    
+    config_file = os.path.join(data_dir, "formConfig.ts")
+    test_file = os.path.join(data_dir, "test_survey_data.json")
+    
+    if os.path.exists(test_file):
+        with open(test_file, 'r', encoding='utf-8') as f:
+            raw_data = f.read()
+            
+        result = main(raw_data, config_file)
+        
+        if "markdown_content" in result:
+            print("--- Generated Metadata ---")
+            print(json.dumps(result.get("metadata", {}), ensure_ascii=False, indent=2))
+            print("\n--- Generated Markdown ---")
+            print(result["markdown_content"])
+            
+            # Save to file for verification
+            out_file = os.path.join(data_dir, "test_output_rag.md")
+            with open(out_file, 'w', encoding='utf-8') as f:
+                f.write(result["markdown_content"])
+            print(f"\nSaved to {out_file}")
+        else:
+            print("Error:", result)
+    else:
+        print("Test file not found.")

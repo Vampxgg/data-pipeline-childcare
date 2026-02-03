@@ -1,0 +1,2195 @@
+dependencies:
+- current_identifier: null
+  type: marketplace
+  value:
+    marketplace_plugin_unique_identifier: langgenius/siliconflow:0.0.9@d0bed72582f8945dba4bf0fb23e03a449e7319f7cb0056ce02bfc76ca3f08215
+    version: null
+- current_identifier: null
+  type: marketplace
+  value:
+    marketplace_plugin_unique_identifier: langgenius/jina_datasource:0.0.5@75942f5bbde870ad28e0345ff5ebf54ebd3aec63f0e66344ef76b88cf06b85c3
+    version: null
+- current_identifier: null
+  type: marketplace
+  value:
+    marketplace_plugin_unique_identifier: langgenius/parentchild_chunker:0.0.7@ee9c253e7942436b4de0318200af97d98d094262f3c1a56edbe29dcb01fbc158
+    version: null
+- current_identifier: null
+  type: marketplace
+  value:
+    marketplace_plugin_unique_identifier: langgenius/notion_datasource:0.1.12@2855c4a7cffd3311118ebe70f095e546f99935e47f12c841123146f728534f55
+    version: null
+- current_identifier: null
+  type: marketplace
+  value:
+    marketplace_plugin_unique_identifier: langgenius/google_drive:0.1.6@4bc0cf8f8979ebd7321b91506b4bc8f090b05b769b5d214f2da4ce4c04ce30bd
+    version: null
+- current_identifier: null
+  type: marketplace
+  value:
+    marketplace_plugin_unique_identifier: langgenius/dify_extractor:0.0.5@ba7e2fd9165eda73bfcc68e31a108855197e88706e5556c058e0777ab08409b3
+    version: null
+- current_identifier: null
+  type: marketplace
+  value:
+    marketplace_plugin_unique_identifier: langgenius/firecrawl_datasource:0.2.4@37b490ebc52ac30d1c6cbfa538edcddddcfed7d5f5de58982edbd4e2094eb6e2
+    version: null
+- current_identifier: null
+  type: marketplace
+  value:
+    marketplace_plugin_unique_identifier: abesticode/knowledge_pro:0.0.6@73873eda46ee70c8d528c409381f705f24206d34f913ac4bfee35812c6d4a6e2
+    version: null
+kind: rag_pipeline
+rag_pipeline:
+  description: ''
+  icon: 📙
+  icon_background: '#FFF4ED'
+  icon_type: emoji
+  icon_url: null
+  name: 托育行业调研数据采集
+version: 0.1.0
+workflow:
+  conversation_variables: []
+  environment_variables: []
+  features: {}
+  graph:
+    edges:
+    - data:
+        isInLoop: false
+        sourceType: document-extractor
+        targetType: variable-aggregator
+      id: 1753349228522-source-1753346901505-target
+      selected: false
+      source: '1753349228522'
+      sourceHandle: source
+      target: '1753346901505'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: datasource
+        targetType: variable-aggregator
+      id: 1754023419266-source-1753346901505-target
+      selected: false
+      source: '1754023419266'
+      sourceHandle: source
+      target: '1753346901505'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: datasource
+        targetType: variable-aggregator
+      id: 1756442998557-source-1756442986174-target
+      selected: false
+      source: '1756442998557'
+      sourceHandle: source
+      target: '1756442986174'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: variable-aggregator
+        targetType: if-else
+      id: 1756442986174-source-1756443014860-target
+      selected: false
+      source: '1756442986174'
+      sourceHandle: source
+      target: '1756443014860'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: datasource
+        targetType: variable-aggregator
+      id: 1750836380067-source-1756442986174-target
+      selected: false
+      source: '1750836380067'
+      sourceHandle: source
+      target: '1756442986174'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: if-else
+        targetType: tool
+      id: 1756443014860-true-1750836391776-target
+      selected: false
+      source: '1756443014860'
+      sourceHandle: 'true'
+      target: '1750836391776'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: if-else
+        targetType: document-extractor
+      id: 1756443014860-false-1753349228522-target
+      selected: false
+      source: '1756443014860'
+      sourceHandle: 'false'
+      target: '1753349228522'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: datasource
+        targetType: variable-aggregator
+      id: 1756896212061-source-1753346901505-target
+      source: '1756896212061'
+      sourceHandle: source
+      target: '1753346901505'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: datasource
+        targetType: variable-aggregator
+      id: 1756907397615-source-1753346901505-target
+      source: '1756907397615'
+      sourceHandle: source
+      target: '1753346901505'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: code
+        targetType: code
+      id: 1770029285641-source-1770032511617-target
+      source: '1770029285641'
+      sourceHandle: source
+      target: '1770032511617'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: tool
+        targetType: variable-aggregator
+      id: 1750836391776-source-1753346901505-target
+      source: '1750836391776'
+      sourceHandle: source
+      target: '1753346901505'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: variable-aggregator
+        targetType: code
+      id: 1753346901505-source-1770029285641-target
+      source: '1753346901505'
+      sourceHandle: source
+      target: '1770029285641'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: code
+        targetType: tool
+      id: 1770032511617-source-1756972161593-target
+      source: '1770032511617'
+      sourceHandle: source
+      target: '1756972161593'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: tool
+        targetType: knowledge-index
+      id: 1756972161593-source-1750836372241-target
+      source: '1756972161593'
+      sourceHandle: source
+      target: '1750836372241'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: tool
+        targetType: tool
+      id: 1756972161593-source-1770080683035-target
+      source: '1756972161593'
+      sourceHandle: source
+      target: '1770080683035'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: tool
+        targetType: tool
+      id: 1756972161593-source-1770080966620-target
+      source: '1756972161593'
+      sourceHandle: source
+      target: '1770080966620'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    nodes:
+    - data:
+        chunk_structure: hierarchical_model
+        embedding_model: BAAI/bge-m3
+        embedding_model_provider: langgenius/siliconflow/siliconflow
+        index_chunk_variable_selector:
+        - '1756972161593'
+        - result
+        indexing_technique: high_quality
+        keyword_number: 10
+        retrieval_model:
+          reranking_enable: true
+          reranking_mode: reranking_model
+          reranking_model:
+            reranking_model_name: BAAI/bge-reranker-v2-m3
+            reranking_provider_name: langgenius/siliconflow/siliconflow
+          score_threshold: 0
+          score_threshold_enabled: false
+          search_method: hybrid_search
+          top_k: 10
+          weights:
+            keyword_setting:
+              keyword_weight: 0.3
+            vector_setting:
+              embedding_model_name: BAAI/bge-m3
+              embedding_provider_name: langgenius/siliconflow/siliconflow
+              vector_weight: 0.7
+        selected: false
+        title: Knowledge Base
+        type: knowledge-index
+      height: 114
+      id: '1750836372241'
+      position:
+        x: 643.877638235536
+        y: 218.17357554203187
+      positionAbsolute:
+        x: 643.877638235536
+        y: 218.17357554203187
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        datasource_configurations: {}
+        datasource_label: File
+        datasource_name: upload-file
+        datasource_parameters: {}
+        fileExtensions:
+        - txt
+        - markdown
+        - mdx
+        - pdf
+        - html
+        - xlsx
+        - xls
+        - vtt
+        - properties
+        - doc
+        - docx
+        - csv
+        - eml
+        - msg
+        - pptx
+        - xml
+        - epub
+        - ppt
+        - md
+        - json
+        - ts
+        plugin_id: langgenius/file
+        provider_name: file
+        provider_type: local_file
+        selected: false
+        title: File
+        type: datasource
+      height: 52
+      id: '1750836380067'
+      position:
+        x: -1371.6520723158733
+        y: 224.87938381325645
+      positionAbsolute:
+        x: -1371.6520723158733
+        y: 224.87938381325645
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        is_team_authorization: true
+        output_schema:
+          properties:
+            documents:
+              description: the documents extracted from the file
+              items:
+                type: object
+              type: array
+            images:
+              description: The images extracted from the file
+              items:
+                type: object
+              type: array
+          type: object
+        paramSchemas:
+        - auto_generate: null
+          default: null
+          form: llm
+          human_description:
+            en_US: the file to be parsed(support pdf, ppt, pptx, doc, docx, png, jpg,
+              jpeg)
+            ja_JP: the file to be parsed(support pdf, ppt, pptx, doc, docx, png, jpg,
+              jpeg)
+            pt_BR: o arquivo a ser analisado (suporta pdf, ppt, pptx, doc, docx, png,
+              jpg, jpeg)
+            zh_Hans: 用于解析的文件(支持 pdf, ppt, pptx, doc, docx, png, jpg, jpeg)
+          label:
+            en_US: file
+            ja_JP: file
+            pt_BR: file
+            zh_Hans: file
+          llm_description: the file to be parsed (support pdf, ppt, pptx, doc, docx,
+            png, jpg, jpeg)
+          max: null
+          min: null
+          name: file
+          options: []
+          placeholder: null
+          precision: null
+          required: true
+          scope: null
+          template: null
+          type: file
+        params:
+          file: ''
+        provider_id: langgenius/dify_extractor/dify_extractor
+        provider_name: langgenius/dify_extractor/dify_extractor
+        provider_type: builtin
+        selected: false
+        title: Dify Extractor
+        tool_configurations: {}
+        tool_description: Dify Extractor
+        tool_label: Dify Extractor
+        tool_name: dify_extractor
+        tool_node_version: '2'
+        tool_parameters:
+          file:
+            type: variable
+            value:
+            - '1756442986174'
+            - output
+        type: tool
+      height: 52
+      id: '1750836391776'
+      position:
+        x: -529.0517930345279
+        y: 245.34584541593574
+      positionAbsolute:
+        x: -529.0517930345279
+        y: 245.34584541593574
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        author: TenTen
+        desc: ''
+        height: 252
+        selected: false
+        showAuthor: true
+        text: '{"root":{"children":[{"children":[{"detail":0,"format":0,"mode":"normal","style":"","text":"A
+          ","type":"text","version":1},{"detail":0,"format":1,"mode":"normal","style":"","text":"Knowledge
+          Pipeline","type":"text","version":1},{"detail":0,"format":0,"mode":"normal","style":"","text":"
+          starts with Data Source as the starting node and ends with the knowledge
+          base node. The general steps are: import documents from the data source
+          → use extractor to extract document content → split and clean content into
+          structured chunks → store in the knowledge base.","type":"text","version":1}],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1,"textFormat":0,"textStyle":""},{"children":[],"direction":null,"format":"","indent":0,"type":"paragraph","version":1,"textFormat":0,"textStyle":""},{"children":[{"detail":0,"format":0,"mode":"normal","style":"","text":"The
+          user input variables required by the Knowledge Pipeline node must be predefined
+          and managed via the Input Field section located in the top-right corner
+          of the orchestration canvas. It determines what input fields the end users
+          will see and need to fill in when importing files to the knowledge base
+          through this pipeline.","type":"text","version":1}],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1,"textFormat":0,"textStyle":""},{"children":[],"direction":null,"format":"","indent":0,"type":"paragraph","version":1,"textFormat":0,"textStyle":""},{"children":[{"detail":0,"format":0,"mode":"normal","style":"","text":"Unique
+          Inputs: Input fields defined here are only available to the selected data
+          source and its downstream nodes.","type":"text","version":1}],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1,"textFormat":0,"textStyle":""},{"children":[{"detail":0,"format":0,"mode":"normal","style":"","text":"Global
+          Inputs: These input fields are shared across all subsequent nodes after
+          the data source and are typically set during the Process Documents step.","type":"text","version":1}],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1,"textFormat":0,"textStyle":""},{"children":[],"direction":null,"format":"","indent":0,"type":"paragraph","version":1,"textFormat":0,"textStyle":""},{"children":[{"detail":0,"format":0,"mode":"normal","style":"","text":"For
+          more information, see https://docs.dify.ai/en/guides/knowledge-base/knowledge-pipeline/knowledge-pipeline-orchestration.","type":"text","version":1}],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1,"textFormat":0,"textStyle":""},{"children":[],"direction":null,"format":"","indent":0,"type":"paragraph","version":1,"textFormat":0,"textStyle":""}],"direction":"ltr","format":"","indent":0,"type":"root","version":1}}'
+        theme: blue
+        title: ''
+        type: ''
+        width: 1124
+      height: 252
+      id: '1751252161631'
+      position:
+        x: -1371.6520723158733
+        y: -123.758428116601
+      positionAbsolute:
+        x: -1371.6520723158733
+        y: -123.758428116601
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom-note
+      width: 1124
+    - data:
+        author: TenTen
+        desc: ''
+        height: 388
+        selected: false
+        showAuthor: true
+        text: '{"root":{"children":[{"children":[{"detail":0,"format":0,"mode":"normal","style":"","text":"Currently
+          we support 4 types of ","type":"text","version":1},{"detail":0,"format":1,"mode":"normal","style":"","text":"Data
+          Sources","type":"text","version":1},{"detail":0,"format":0,"mode":"normal","style":"","text":":
+          File Upload, Online Drive, Online Doc, and Web Crawler. Different types
+          of Data Sources have different input and output types. The output of File
+          Upload and Online Drive are files, while the output of Online Doc and WebCrawler
+          are pages. You can find more Data Sources on our Marketplace.","type":"text","version":1}],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1,"textFormat":0,"textStyle":""},{"children":[],"direction":null,"format":"","indent":0,"type":"paragraph","version":1,"textFormat":0,"textStyle":""},{"children":[{"detail":0,"format":0,"mode":"normal","style":"","text":"A
+          Knowledge Pipeline can have multiple data sources. Each data source can
+          be selected more than once with different settings. Each added data source
+          is a tab on the add file interface. However, each time the user can only
+          select one data source to import the file and trigger its subsequent processing.","type":"text","version":1}],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1,"textFormat":0,"textStyle":""},{"children":[],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1,"textFormat":0,"textStyle":""}],"direction":"ltr","format":"","indent":0,"type":"root","version":1}}'
+        theme: blue
+        title: ''
+        type: ''
+        width: 285
+      height: 388
+      id: '1751252440357'
+      position:
+        x: -1723.9942193415582
+        y: 224.87938381325645
+      positionAbsolute:
+        x: -1723.9942193415582
+        y: 224.87938381325645
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom-note
+      width: 285
+    - data:
+        author: TenTen
+        desc: ''
+        height: 430
+        selected: false
+        showAuthor: true
+        text: '{"root":{"children":[{"children":[{"detail":0,"format":0,"mode":"normal","style":"","text":"A
+          document extractor in Retrieval-Augmented Generation (RAG) is a tool or
+          component that automatically identifies, extracts, and structures text and
+          data from various types of documents—such as PDFs, images, scanned files,
+          handwritten notes, and more—into a format that can be effectively used by
+          language models within RAG Pipeline.","type":"text","version":1}],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1,"textFormat":0,"textStyle":""},{"children":[],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1,"textFormat":0,"textStyle":""},{"children":[{"detail":0,"format":1,"mode":"normal","style":"","text":"Dify
+          Extractor","type":"text","version":1},{"detail":0,"format":0,"mode":"normal","style":"","text":" is
+          a built-in document parser developed by Dify. It supports a wide range of
+          common file formats and offers specialized handling for certain formats,
+          such as ","type":"text","version":1},{"detail":0,"format":16,"mode":"normal","style":"","text":".docx","type":"text","version":1},{"detail":0,"format":0,"mode":"normal","style":"","text":".
+          In addition to text extraction, it can extract images embedded within documents,
+          store them, and return their accessible URLs.","type":"text","version":1}],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1,"textFormat":1,"textStyle":""}],"direction":"ltr","format":"","indent":0,"type":"root","version":1,"textFormat":1}}'
+        theme: blue
+        title: ''
+        type: ''
+        width: 240
+      height: 430
+      id: '1751253091602'
+      position:
+        x: -417.5334221022782
+        y: 547.4103414077279
+      positionAbsolute:
+        x: -417.5334221022782
+        y: 547.4103414077279
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom-note
+      width: 240
+    - data:
+        author: TenTen
+        desc: ''
+        height: 638
+        selected: false
+        showAuthor: true
+        text: '{"root":{"children":[{"children":[{"detail":0,"format":1,"mode":"normal","style":"","text":"Parent-Child
+          Mode","type":"text","version":1},{"detail":0,"format":0,"mode":"normal","style":"","text":"
+          addresses the dilemma of context and precision by leveraging a two-tier
+          hierarchical approach that effectively balances the trade-off between accurate
+          matching and comprehensive contextual information in RAG systems. ","type":"text","version":1}],"direction":"ltr","format":"start","indent":0,"type":"paragraph","version":1,"textFormat":1,"textStyle":""},{"children":[{"detail":0,"format":0,"mode":"normal","style":"","text":"Here
+          is the essential mechanism of this structured, two-level information access:","type":"text","version":1}],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1,"textFormat":0,"textStyle":""},{"children":[{"detail":0,"format":0,"mode":"normal","style":"","text":"-
+          Query Matching with Child Chunks: Small, focused pieces of information,
+          often as concise as a single sentence within a paragraph, are used to match
+          the user''s query. These child chunks enable precise and relevant initial
+          retrieval.","type":"text","version":1}],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1,"textFormat":0,"textStyle":""},{"children":[{"detail":0,"format":0,"mode":"normal","style":"","text":"-
+          Contextual Enrichment with Parent Chunks: Larger, encompassing sections—such
+          as a paragraph, a section, or even an entire document—that include the matched
+          child chunks are then retrieved. These parent chunks provide comprehensive
+          context for the Language Model (LLM). length, and overlap—to fit different
+          document formats or scenarios. Preprocessing options are also available
+          to clean up the text by removing excess spaces, URLs, and emails.","type":"text","version":1}],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1,"textFormat":0,"textStyle":""}],"direction":"ltr","format":"","indent":0,"type":"root","version":1,"textFormat":1}}'
+        theme: blue
+        title: ''
+        type: ''
+        width: 240
+      height: 638
+      id: '1751253953926'
+      position:
+        x: 441.64854864715915
+        y: 419.7680041058875
+      positionAbsolute:
+        x: 441.64854864715915
+        y: 419.7680041058875
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom-note
+      width: 240
+    - data:
+        author: TenTen
+        desc: ''
+        height: 410
+        selected: false
+        showAuthor: true
+        text: '{"root":{"children":[{"children":[{"detail":0,"format":0,"mode":"normal","style":"","text":"The
+          knowledge base provides two indexing methods: ","type":"text","version":1},{"detail":0,"format":1,"mode":"normal","style":"","text":"High-Quality","type":"text","version":1},{"detail":0,"format":0,"mode":"normal","style":"","text":" and ","type":"text","version":1},{"detail":0,"format":1,"mode":"normal","style":"","text":"Economical","type":"text","version":1},{"detail":0,"format":0,"mode":"normal","style":"","text":",
+          each with different retrieval strategies. High-Quality mode uses embeddings
+          for vectorization and supports vector, full-text, and hybrid retrieval,
+          offering more accurate results but higher resource usage. Economical mode
+          uses keyword-based inverted indexing with no token consumption but lower
+          accuracy; upgrading to High-Quality is possible, but downgrading requires
+          creating a new knowledge base.","type":"text","version":1}],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1,"textFormat":0,"textStyle":""},{"children":[],"direction":null,"format":"","indent":0,"type":"paragraph","version":1,"textFormat":0,"textStyle":""},{"children":[{"detail":0,"format":1,"mode":"normal","style":"","text":"*
+          Parent-Child Mode","type":"text","version":1},{"detail":0,"format":0,"mode":"normal","style":"","text":" and ","type":"text","version":1},{"detail":0,"format":1,"mode":"normal","style":"","text":"Q&A
+          Mode","type":"text","version":1},{"detail":0,"format":0,"mode":"normal","style":"","text":" only
+          support the ","type":"text","version":1},{"detail":0,"format":1,"mode":"normal","style":"","text":"High-Quality","type":"text","version":1},{"detail":0,"format":0,"mode":"normal","style":"","text":" indexing
+          method.","type":"text","version":1}],"direction":"ltr","format":"start","indent":0,"type":"paragraph","version":1,"textFormat":1,"textStyle":""}],"direction":"ltr","format":"","indent":0,"type":"root","version":1,"textFormat":1}}'
+        theme: blue
+        title: ''
+        type: ''
+        width: 240
+      height: 410
+      id: '1751254117904'
+      position:
+        x: 481.15428176082776
+        y: 837.0286041964113
+      positionAbsolute:
+        x: 481.15428176082776
+        y: 837.0286041964113
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom-note
+      width: 240
+    - data:
+        output_type: string
+        selected: false
+        title: Variable Aggregator
+        type: variable-aggregator
+        variables:
+        - - '1750836391776'
+          - text
+        - - '1753349228522'
+          - text
+        - - '1754023419266'
+          - content
+        - - '1756896212061'
+          - content
+        - - '1756907397615'
+          - content
+      height: 212
+      id: '1753346901505'
+      position:
+        x: -173.1874326884813
+        y: 292.4342548616481
+      positionAbsolute:
+        x: -173.1874326884813
+        y: 292.4342548616481
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        is_array_file: false
+        selected: false
+        title: Doc Extractor
+        type: document-extractor
+        variable_selector:
+        - '1756442986174'
+        - output
+      height: 104
+      id: '1753349228522'
+      position:
+        x: -529.0517930345279
+        y: 506.7429579564778
+      positionAbsolute:
+        x: -529.0517930345279
+        y: 506.7429579564778
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        datasource_configurations: {}
+        datasource_label: Notion
+        datasource_name: notion_datasource
+        datasource_parameters: {}
+        plugin_id: langgenius/notion_datasource
+        provider_name: notion_datasource
+        provider_type: online_document
+        selected: false
+        title: Notion
+        type: datasource
+      height: 52
+      id: '1754023419266'
+      position:
+        x: -1369.6904698303242
+        y: 440.01452302398053
+      positionAbsolute:
+        x: -1369.6904698303242
+        y: 440.01452302398053
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        output_type: file
+        selected: false
+        title: Variable Aggregator
+        type: variable-aggregator
+        variables:
+        - - '1750836380067'
+          - file
+        - - '1756442998557'
+          - file
+      height: 134
+      id: '1756442986174'
+      position:
+        x: -1070.9398405240527
+        y: 224.87938381325645
+      positionAbsolute:
+        x: -1070.9398405240527
+        y: 224.87938381325645
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        datasource_configurations: {}
+        datasource_label: Google Drive
+        datasource_name: google_drive
+        datasource_parameters: {}
+        plugin_id: langgenius/google_drive
+        provider_name: google_drive
+        provider_type: online_drive
+        selected: false
+        title: Google Drive
+        type: datasource
+      height: 52
+      id: '1756442998557'
+      position:
+        x: -1371.6520723158733
+        y: 326
+      positionAbsolute:
+        x: -1371.6520723158733
+        y: 326
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        cases:
+        - case_id: 'true'
+          conditions:
+          - comparison_operator: is
+            id: 1581dd11-7898-41f4-962f-937283ba7e01
+            value: .xlsx
+            varType: string
+            variable_selector:
+            - '1756442986174'
+            - output
+            - extension
+          - comparison_operator: is
+            id: 92abb46d-d7e4-46e7-a5e1-8a29bb45d528
+            value: .xls
+            varType: string
+            variable_selector:
+            - '1756442986174'
+            - output
+            - extension
+          - comparison_operator: is
+            id: 1dde5ae7-754d-4e83-96b2-fe1f02995d8b
+            value: .md
+            varType: string
+            variable_selector:
+            - '1756442986174'
+            - output
+            - extension
+          - comparison_operator: is
+            id: 7e1a80e5-c32a-46a4-8f92-8912c64972aa
+            value: .markdown
+            varType: string
+            variable_selector:
+            - '1756442986174'
+            - output
+            - extension
+          - comparison_operator: is
+            id: 53abfe95-c7d0-4f63-ad37-17d425d25106
+            value: .mdx
+            varType: string
+            variable_selector:
+            - '1756442986174'
+            - output
+            - extension
+          - comparison_operator: is
+            id: 436877b8-8c0a-4cc6-9565-92754db08571
+            value: .html
+            varType: file
+            variable_selector:
+            - '1756442986174'
+            - output
+            - extension
+          - comparison_operator: is
+            id: 5e3e375e-750b-4204-8ac3-9a1174a5ab7c
+            value: .htm
+            varType: file
+            variable_selector:
+            - '1756442986174'
+            - output
+            - extension
+          - comparison_operator: is
+            id: 1a84a784-a797-4f96-98a0-33a9b48ceb2b
+            value: .docx
+            varType: file
+            variable_selector:
+            - '1756442986174'
+            - output
+            - extension
+          - comparison_operator: is
+            id: 62d11445-876a-493f-85d3-8fc020146bdd
+            value: .csv
+            varType: file
+            variable_selector:
+            - '1756442986174'
+            - output
+            - extension
+          - comparison_operator: is
+            id: 02c4bce8-7668-4ccd-b750-4281f314b231
+            value: .txt
+            varType: file
+            variable_selector:
+            - '1756442986174'
+            - output
+            - extension
+          - comparison_operator: is
+            id: b90a2529-bf7e-4dd9-9e84-a394192c80da
+            value: .json
+            varType: file
+            variable_selector:
+            - '1756442986174'
+            - output
+            - extension
+          - comparison_operator: is
+            id: 079cd028-d9ed-4e88-b3db-50b3e51cb05d
+            value: .ts
+            varType: file
+            variable_selector:
+            - '1756442986174'
+            - output
+            - extension
+          id: 'true'
+          logical_operator: or
+        selected: false
+        title: IF/ELSE
+        type: if-else
+      height: 410
+      id: '1756443014860'
+      position:
+        x: -787.7610685914615
+        y: 224.87938381325645
+      positionAbsolute:
+        x: -787.7610685914615
+        y: 224.87938381325645
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        datasource_configurations: {}
+        datasource_label: Jina Reader
+        datasource_name: jina_reader
+        datasource_parameters:
+          crawl_sub_pages:
+            type: variable
+            value:
+            - rag
+            - '1756896212061'
+            - jina_subpages
+          limit:
+            type: variable
+            value:
+            - rag
+            - '1756896212061'
+            - jina_limit
+          url:
+            type: mixed
+            value: '{{#rag.1756896212061.jina_url#}}'
+          use_sitemap:
+            type: variable
+            value:
+            - rag
+            - '1756896212061'
+            - jian_sitemap
+        plugin_id: langgenius/jina_datasource
+        provider_name: jinareader
+        provider_type: website_crawl
+        selected: false
+        title: Jina Reader
+        type: datasource
+      height: 52
+      id: '1756896212061'
+      position:
+        x: -1371.6520723158733
+        y: 538.9988445953813
+      positionAbsolute:
+        x: -1371.6520723158733
+        y: 538.9988445953813
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        datasource_configurations: {}
+        datasource_label: Firecrawl
+        datasource_name: crawl
+        datasource_parameters:
+          crawl_subpages:
+            type: variable
+            value:
+            - rag
+            - '1756907397615'
+            - firecrawl_subpages
+          exclude_paths:
+            type: mixed
+            value: '{{#rag.1756907397615.exclude_paths#}}'
+          include_paths:
+            type: mixed
+            value: '{{#rag.1756907397615.include_paths#}}'
+          limit:
+            type: variable
+            value:
+            - rag
+            - '1756907397615'
+            - max_pages
+          max_depth:
+            type: variable
+            value:
+            - rag
+            - '1756907397615'
+            - max_depth
+          only_main_content:
+            type: variable
+            value:
+            - rag
+            - '1756907397615'
+            - main_content
+          url:
+            type: mixed
+            value: '{{#rag.1756907397615.firecrawl_url1#}}'
+        plugin_id: langgenius/firecrawl_datasource
+        provider_name: firecrawl
+        provider_type: website_crawl
+        selected: false
+        title: Firecrawl
+        type: datasource
+      height: 52
+      id: '1756907397615'
+      position:
+        x: -1371.6520723158733
+        y: 644.3296146102903
+      positionAbsolute:
+        x: -1371.6520723158733
+        y: 644.3296146102903
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        is_team_authorization: true
+        paramSchemas:
+        - auto_generate: null
+          default: null
+          form: llm
+          human_description:
+            en_US: The text you want to chunk.
+            ja_JP: The text you want to chunk.
+            pt_BR: Conteúdo de Entrada
+            zh_Hans: 输入文本
+          label:
+            en_US: Input Content
+            ja_JP: Input Content
+            pt_BR: Conteúdo de Entrada
+            zh_Hans: 输入文本
+          llm_description: The text you want to chunk.
+          max: null
+          min: null
+          name: input_text
+          options: []
+          placeholder: null
+          precision: null
+          required: true
+          scope: null
+          template: null
+          type: string
+        - auto_generate: null
+          default: paragraph
+          form: llm
+          human_description:
+            en_US: Split text into paragraphs based on separator and maximum chunk
+              length, using split text as parent block or entire document as parent
+              block and directly retrieve.
+            ja_JP: Split text into paragraphs based on separator and maximum chunk
+              length, using split text as parent block or entire document as parent
+              block and directly retrieve.
+            pt_BR: Dividir texto em parágrafos com base no separador e no comprimento
+              máximo do bloco, usando o texto dividido como bloco pai ou documento
+              completo como bloco pai e diretamente recuperá-lo.
+            zh_Hans: 根据分隔符和最大块长度将文本拆分为段落，使用拆分文本作为检索的父块或整个文档用作父块并直接检索。
+          label:
+            en_US: Parent Mode
+            ja_JP: Parent Mode
+            pt_BR: Modo Pai
+            zh_Hans: 父块模式
+          llm_description: Split text into paragraphs based on separator and maximum
+            chunk length, using split text as parent block or entire document as parent
+            block and directly retrieve.
+          max: null
+          min: null
+          name: parent_mode
+          options:
+          - icon: ''
+            label:
+              en_US: paragraph
+              ja_JP: paragraph
+              pt_BR: paragraph
+              zh_Hans: paragraph
+            value: paragraph
+          - icon: ''
+            label:
+              en_US: full_doc
+              ja_JP: full_doc
+              pt_BR: full_doc
+              zh_Hans: full_doc
+            value: full_doc
+          placeholder: null
+          precision: null
+          required: true
+          scope: null
+          template: null
+          type: select
+        - auto_generate: null
+          default: '
+
+
+            '
+          form: llm
+          human_description:
+            en_US: Separator used for chunking
+            ja_JP: Separator used for chunking
+            pt_BR: Separador usado para divisão
+            zh_Hans: 用于分块的分隔符
+          label:
+            en_US: Parent Delimiter
+            ja_JP: Parent Delimiter
+            pt_BR: Separador de Pai
+            zh_Hans: 父块分隔符
+          llm_description: The separator used to split chunks
+          max: null
+          min: null
+          name: separator
+          options: []
+          placeholder: null
+          precision: null
+          required: false
+          scope: null
+          template: null
+          type: string
+        - auto_generate: null
+          default: 1024
+          form: llm
+          human_description:
+            en_US: Maximum length for chunking
+            ja_JP: Maximum length for chunking
+            pt_BR: Comprimento máximo para divisão
+            zh_Hans: 用于分块的最大长度
+          label:
+            en_US: Maximum Parent Chunk Length
+            ja_JP: Maximum Parent Chunk Length
+            pt_BR: Comprimento Máximo do Bloco Pai
+            zh_Hans: 最大父块长度
+          llm_description: Maximum length allowed per chunk
+          max: null
+          min: null
+          name: max_length
+          options: []
+          placeholder: null
+          precision: null
+          required: false
+          scope: null
+          template: null
+          type: number
+        - auto_generate: null
+          default: '. '
+          form: llm
+          human_description:
+            en_US: Separator used for subchunking
+            ja_JP: Separator used for subchunking
+            pt_BR: Separador usado para subdivisão
+            zh_Hans: 用于子分块的分隔符
+          label:
+            en_US: Child Delimiter
+            ja_JP: Child Delimiter
+            pt_BR: Separador de Subdivisão
+            zh_Hans: 子分块分隔符
+          llm_description: The separator used to split subchunks
+          max: null
+          min: null
+          name: subchunk_separator
+          options: []
+          placeholder: null
+          precision: null
+          required: false
+          scope: null
+          template: null
+          type: string
+        - auto_generate: null
+          default: 512
+          form: llm
+          human_description:
+            en_US: Maximum length for subchunking
+            ja_JP: Maximum length for subchunking
+            pt_BR: Comprimento máximo para subdivisão
+            zh_Hans: 用于子分块的最大长度
+          label:
+            en_US: Maximum Child Chunk Length
+            ja_JP: Maximum Child Chunk Length
+            pt_BR: Comprimento Máximo de Subdivisão
+            zh_Hans: 子分块最大长度
+          llm_description: Maximum length allowed per subchunk
+          max: null
+          min: null
+          name: subchunk_max_length
+          options: []
+          placeholder: null
+          precision: null
+          required: false
+          scope: null
+          template: null
+          type: number
+        - auto_generate: null
+          default: 0
+          form: llm
+          human_description:
+            en_US: Whether to remove consecutive spaces, newlines and tabs
+            ja_JP: Whether to remove consecutive spaces, newlines and tabs
+            pt_BR: Se deve remover espaços extras no texto
+            zh_Hans: 是否移除文本中的连续空格、换行符和制表符
+          label:
+            en_US: Replace consecutive spaces, newlines and tabs
+            ja_JP: Replace consecutive spaces, newlines and tabs
+            pt_BR: Substituir espaços consecutivos, novas linhas e guias
+            zh_Hans: 替换连续空格、换行符和制表符
+          llm_description: Whether to remove consecutive spaces, newlines and tabs
+          max: null
+          min: null
+          name: remove_extra_spaces
+          options: []
+          placeholder: null
+          precision: null
+          required: false
+          scope: null
+          template: null
+          type: boolean
+        - auto_generate: null
+          default: 0
+          form: llm
+          human_description:
+            en_US: Whether to remove URLs and emails in the text
+            ja_JP: Whether to remove URLs and emails in the text
+            pt_BR: Se deve remover URLs e e-mails no texto
+            zh_Hans: 是否移除文本中的URL和电子邮件地址
+          label:
+            en_US: Delete all URLs and email addresses
+            ja_JP: Delete all URLs and email addresses
+            pt_BR: Remover todas as URLs e e-mails
+            zh_Hans: 删除所有URL和电子邮件地址
+          llm_description: Whether to remove URLs and emails in the text
+          max: null
+          min: null
+          name: remove_urls_emails
+          options: []
+          placeholder: null
+          precision: null
+          required: false
+          scope: null
+          template: null
+          type: boolean
+        params:
+          input_text: ''
+          max_length: ''
+          parent_mode: ''
+          remove_extra_spaces: ''
+          remove_urls_emails: ''
+          separator: ''
+          subchunk_max_length: ''
+          subchunk_separator: ''
+        provider_id: langgenius/parentchild_chunker/parentchild_chunker
+        provider_name: langgenius/parentchild_chunker/parentchild_chunker
+        provider_type: builtin
+        selected: false
+        title: Parent-child Chunker
+        tool_configurations: {}
+        tool_description: Process documents into parent-child chunk structures
+        tool_label: Parent-child Chunker
+        tool_name: parentchild_chunker
+        tool_node_version: '2'
+        tool_parameters:
+          input_text:
+            type: mixed
+            value: '{{#1770032511617.markdown_content#}}'
+          max_length:
+            type: variable
+            value:
+            - rag
+            - shared
+            - parent_length
+          parent_mode:
+            type: variable
+            value:
+            - rag
+            - shared
+            - parent_mode
+          remove_extra_spaces:
+            type: variable
+            value:
+            - rag
+            - shared
+            - clean_1
+          remove_urls_emails:
+            type: variable
+            value:
+            - rag
+            - shared
+            - clean_2
+          separator:
+            type: mixed
+            value: '{{#rag.shared.parent_dilmiter#}}'
+          subchunk_max_length:
+            type: variable
+            value:
+            - rag
+            - shared
+            - child_length
+          subchunk_separator:
+            type: mixed
+            value: '{{#rag.shared.child_delimiter#}}'
+        type: tool
+      height: 52
+      id: '1756972161593'
+      position:
+        x: 354.83062452178524
+        y: 218.17357554203187
+      positionAbsolute:
+        x: 354.83062452178524
+        y: 218.17357554203187
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        code: "# Dify 知识库代码节点：多输入智能 JSON 解析器\n# Author: Senior Software Engineer\n\
+          # Version: 2.0\n\nimport json\nimport re\nfrom typing import Any, Dict,\
+          \ List, Union\n\n# 确保已在 Dify 的“依赖管理”中添加了 json-repair 依赖\n# pip install json-repair\n\
+          import json_repair\n\n\n# ==============================================================================\n\
+          #  核心解析逻辑 (来自于你的版本，因为它非常健壮)\n#  无需修改，我们直接复用这个强大的底层函数。\n# ==============================================================================\n\
+          def _extract_most_significant_json(text: str) -> Union[Dict, List]:\n  \
+          \  \"\"\"\n    智能地从可能包含噪音、注释或多个JSON片段的文本中提取最主要的JSON对象或列表。\n\n    智能性体现在：\n\
+          \    1.  **分层解析**: 优先使用高速标准库，失败后才动用重量级修复工具。\n    2.  **候选者识别**: 即使文本中散落着多个JSON片段，也能识别出它们。\n\
+          \    3.  **信息量最大原则**: 通过比较大小和复杂性，选择最可能符合用户意图的那个JSON对象。\n    4.  **鲁棒性**:\
+          \ 结合预处理和强大的修复库，最大化解析成功率。\n    \"\"\"\n\n    # --- 阶段1: 快速通道 - 尝试直接解析 ---\n\
+          \    try:\n        return json_repair.loads(text)\n    except Exception:\n\
+          \        pass\n\n    # --- 阶段2: 高级提取 - 寻找并评估候选JSON ---\n    potential_json_strings\
+          \ = re.findall(r'(\\{[\\s\\S]*\\}|\\[[\\s\\S]*\\])', text)\n\n    if not\
+          \ potential_json_strings:\n        raise ValueError(\"在输入文本中未能找到任何潜在的JSON结构\
+          \ (即 {...} 或 [...] 块)\")\n\n    valid_jsons = []\n    for candidate in potential_json_strings:\n\
+          \        try:\n            parsed_json = json_repair.loads(candidate)\n\
+          \            valid_jsons.append(parsed_json)\n        except Exception:\n\
+          \            continue\n\n    if not valid_jsons:\n        raise ValueError(\"\
+          找到了潜在的JSON结构，但没有一个可以被成功修复和解析\")\n\n    # --- 智能决策：选择信息量最大的JSON ---\n   \
+          \ most_significant_json = max(valid_jsons, key=lambda x: len(json.dumps(x,\
+          \ ensure_ascii=False)))\n\n    return most_significant_json\n\n\n# ==============================================================================\n\
+          #  主执行函数 (全新设计，支持多输入)\n# ==============================================================================\n\
+          def main(**kwargs: Any) -> Dict[str, Any]:\n    \"\"\"\n    Dify 代码执行节点主函数\
+          \ - 【多输入通用版】\n\n    核心功能:\n    1. 接受任意数量的命名输入参数 (例如 arg1, arg2, user_profile,\
+          \ 等)。\n    2. 对每一个输入进行智能类型检查和解析。\n    3. 如果输入是字符串，则调用 _extract_most_significant_json\
+          \ 函数进行解析。\n    4. 如果输入已经是 dict 或 list，则直接使用。\n    5. 将所有成功解析的对象收集到一个字典中返回。\n\
+          \    6. 输出的键名会自动在原始输入键名后附加 \"_obj\" 后缀，方便下游引用。\n\n    使用示例:\n    - 输入1:\
+          \ key=\"arg1\", value=\"{'name': 'Alice'}\"\n    - 输入2: key=\"arg2\", value=\"\
+          [1, 2, 3]\"\n    - 输出: {'arg1_obj': {'name': 'Alice'}, 'arg2_obj': [1, 2,\
+          \ 3]}\n    \"\"\"\n    # 最终输出的结果字典\n    parsed_outputs = {}\n\n    # kwargs\
+          \ 是一个字典，包含了所有在 Dify 界面上定义的输入变量\n    # 例如：{'arg1': \"{'name': 'value'}\"\
+          , 'arg2': \"some other string\"}\n    if not kwargs:\n        # 如果没有配置任何输入参数，可以返回一个空字典或提示信息\n\
+          \        return {\"status\": \"No inputs provided.\"}\n\n    # 遍历所有传入的参数\n\
+          \    for key, raw_input in kwargs.items():\n\n        try:\n           \
+          \ parsed_object = None  # 先初始化一个变量来存储解析后的对象\n\n            if isinstance(raw_input,\
+          \ (dict, list)):\n                # 如果输入已经是正确的 Python 对象，直接赋值\n        \
+          \        parsed_object = raw_input\n\n            elif isinstance(raw_input,\
+          \ str):\n                if not raw_input.strip():\n                   \
+          \ # 对空字符串进行处理，两个版本的输出都设置为 None\n                    parsed_outputs[f\"{key}_obj\"\
+          ] = None\n                    parsed_outputs[f\"{key}_str\"] = None\n  \
+          \                  continue  # 继续处理下一个输入\n\n                # 调用强大的解析函数\n\
+          \                parsed_object = _extract_most_significant_json(raw_input)\n\
+          \n            else:\n                # 对于其他意外的类型\n                error_info\
+          \ = {\n                    \"error\": f\"Unsupported input type for '{key}'\"\
+          ,\n                    \"type\": str(type(raw_input)),\n               \
+          \     \"value\": str(raw_input)\n                }\n                parsed_outputs[f\"\
+          {key}_obj\"] = error_info\n                # 字符串版本可以存为错误提示或空\n         \
+          \       parsed_outputs[f\"{key}_str\"] = json.dumps(error_info)\n      \
+          \          continue\n\n            # --- 【核心调整点】 ---\n            # 如果上面任何一个分支成功获得了\
+          \ parsed_object，就在这里统一处理输出\n            if parsed_object is not None:\n\
+          \                # 版本1: 输出 Python 对象，键名以 _obj 结尾\n                parsed_outputs[f\"\
+          {key}_obj\"] = parsed_object\n\n                # 版本2: 输出 JSON 字符串，键名以 _str\
+          \ 结尾\n                # 使用 ensure_ascii=False 来正确处理中文字符\n              \
+          \  parsed_outputs[f\"{key}_str\"] = json.dumps(parsed_object, ensure_ascii=False)\n\
+          \n        except Exception as e:\n            # 如果在解析过程中发生任何错误，构造一个清晰的错误信息\n\
+          \            error_message = (\n                f\"Error processing input\
+          \ '{key}': {e}\\n\"\n                f\"Original input (first 500 chars):\
+          \ {str(raw_input)[:500]}...\"\n            )\n            # 两个版本的输出都记录错误\n\
+          \            parsed_outputs[f\"{key}_obj\"] = {\"error\": error_message}\n\
+          \            parsed_outputs[f\"{key}_str\"] = json.dumps({\"error\": error_message})\n\
+          \n    return parsed_outputs"
+        code_language: python3
+        outputs:
+          arg1_obj:
+            children: null
+            type: object
+          arg1_str:
+            children: null
+            type: string
+        selected: false
+        title: 数据清洗
+        type: code
+        variables:
+        - value_selector:
+          - '1750836391776'
+          - text
+          value_type: string
+          variable: arg1
+      height: 52
+      id: '1770029285641'
+      position:
+        x: -179.30911420499967
+        y: 218.17357554203187
+      positionAbsolute:
+        x: -179.30911420499967
+        y: 218.17357554203187
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        code: "import json\nimport re\nimport os\nimport datetime\nimport traceback\n\
+          \n# ==========================================\n# 1. Configuration & Mappings\n\
+          # ==========================================\n\n# Map snake_case fields\
+          \ in JSON Schema to camelCase keys in formConfig.ts\nSCHEMA_TO_CONFIG_KEY\
+          \ = {\n    # Institution Info\n    \"institution_info.name\": \"orgName\"\
+          ,\n    \"institution_info.city\": \"location\",\n    \"institution_info.subject_type\"\
+          : \"orgNature\",\n    \"institution_info.specific_form\": \"orgType\",\n\
+          \    \"institution_info.is_puhui\": \"isPovertyFree\",\n    \"institution_info.service_modes\"\
+          : \"serviceMode\",\n    \"institution_info.total_capacity\": \"totalSlots\"\
+          ,\n    \"institution_info.current_enrollment\": \"totalChildren\",\n   \
+          \ \"institution_info.staff_count\": \"totalStaff\",\n    \n    # Personal\
+          \ Info\n    \"personal_info.gender\": \"gender\",\n    \"personal_info.education\"\
+          : \"education\",\n    \"personal_info.major\": \"educationMajor\",\n   \
+          \ \n    # Employment Info\n    \"employment_info.current_position\": \"\
+          currentPosition\",\n    \"employment_info.job_change_interval\": \"interval\"\
+          ,\n    \"employment_info.job_change_reasons\": \"reason\",\n    \"employment_info.salary_range\"\
+          : \"salaryRange\",\n    \"employment_info.is_kindergarten_transition\":\
+          \ \"isFromTeacherToTeacher\",\n    \"employment_info.transition_needs\"\
+          : \"reasonFromTeacherToTeacher\", # Note: Schema says needs, config says\
+          \ reason. Keeping mapping for safety.\n    \n    # Position Details\n  \
+          \  \"position_details.core_tasks\": \"coreTasks\",\n    \"position_details.capability_requirements\"\
+          : [\"trainingNeeds\", \"careSkills\"], # Might be one of these\n    \"position_details.quality_requirements\"\
+          : \"competency_matrix\",\n    \n    # Manager Specific Info (Partial mappings\
+          \ based on available config)\n    \"manager_specific_info.future_talent_needs\"\
+          : \"futureTalentNeeds\",\n    \"manager_specific_info.suggestions\": \"\
+          suggestions\"\n}\n\n# ==========================================\n# 2. Helper\
+          \ Functions: Config Parsing\n# ==========================================\n\
+          \ndef parse_ts_config(file_path):\n    \"\"\"\n    Parses formConfig.ts\
+          \ to extract label mappings.\n    Returns: { 'field_key': { 'type': 'options/matrix',\
+          \ 'map': {...} } }\n    \"\"\"\n    if not os.path.exists(file_path):\n\
+          \        print(f\"Warning: Config file not found at {file_path}\")\n   \
+          \     return {}\n\n    with open(file_path, 'r', encoding='utf-8') as f:\n\
+          \        content = f.read()\n\n    mappings = {}\n    \n    # 1. Find all\
+          \ keys\n    key_pattern = re.compile(r\"key:\\s*['\\\"]([^'\\\"]+)['\\\"\
+          ]\")\n    keys = []\n    for match in key_pattern.finditer(content):\n \
+          \       keys.append((match.group(1), match.start()))\n    \n    # 2. Extract\
+          \ options for each key\n    for i, (key_name, start_pos) in enumerate(keys):\n\
+          \        end_pos = keys[i+1][1] if i + 1 < len(keys) else len(content)\n\
+          \        block_content = content[start_pos:end_pos]\n        \n        #\
+          \ A. Options (Select/Radio/Checkbox)\n        options_match = re.search(r\"\
+          options:\\s*\\[(.*?)\\]\", block_content, re.DOTALL)\n        if options_match:\n\
+          \            options_str = options_match.group(1)\n            opt_map =\
+          \ {}\n            # Match label:'...', value:'...'\n            items =\
+          \ re.finditer(r\"label:\\s*['\\\"]([^'\\\"]+)['\\\"].*?value:\\s*(['\\\"\
+          ]?)([^'\\\"}\\s,]+)\\2\", options_str, re.DOTALL)\n            for item\
+          \ in items:\n                label = item.group(1)\n                val\
+          \ = item.group(3)\n                opt_map[val] = label\n            \n\
+          \            if opt_map:\n                mappings[key_name] = {'type':\
+          \ 'options', 'map': opt_map}\n                continue\n\n        # B. Matrix\n\
+          \        rows_match = re.search(r\"rows:\\s*\\[(.*?)\\]\", block_content,\
+          \ re.DOTALL)\n        cols_match = re.search(r\"columns:\\s*\\[(.*?)\\]\"\
+          , block_content, re.DOTALL)\n        \n        if rows_match and cols_match:\n\
+          \            row_map = {}\n            col_map = {}\n            \n    \
+          \        for item in re.finditer(r\"label:\\s*['\\\"]([^'\\\"]+)['\\\"].*?value:\\\
+          s*(['\\\"]?)([^'\\\"}\\s,]+)\\2\", rows_match.group(1), re.DOTALL):\n  \
+          \              row_map[item.group(3)] = item.group(1)\n            \n  \
+          \          for item in re.finditer(r\"label:\\s*['\\\"]([^'\\\"]+)['\\\"\
+          ].*?value:\\s*(['\\\"]?)([^'\\\"}\\s,]+)\\2\", cols_match.group(1), re.DOTALL):\n\
+          \                col_map[item.group(3)] = item.group(1)\n              \
+          \  \n            mappings[key_name] = {'type': 'matrix', 'rows': row_map,\
+          \ 'cols': col_map}\n    print(mappings)\n    return mappings\n\ndef get_label(value,\
+          \ config_key, mappings):\n    \"\"\"\n    Translates a value (code) to a\
+          \ label using the mappings.\n    \"\"\"\n    if value is None or value ==\
+          \ \"\":\n        return \"N/A\"\n        \n    # Handle boolean -> Yes/No\
+          \ if mapped, otherwise default\n    if isinstance(value, bool):\n      \
+          \  # Check if there's a mapping for 'yes'/'no' or 'true'/'false'\n     \
+          \   # Usually frontend sends 'yes'/'no' strings for radios, but JSON might\
+          \ have bools\n        pass \n\n    if config_key not in mappings:\n    \
+          \    # Special handling for booleans if no mapping\n        if isinstance(value,\
+          \ bool):\n            return \"是\" if value else \"否\"\n        return str(value)\n\
+          \n    config = mappings[config_key]\n    \n    if config['type'] == 'options':\n\
+          \        mapping = config['map']\n        if isinstance(value, list):\n\
+          \            return \", \".join([mapping.get(str(v), str(v)) for v in value])\n\
+          \        else:\n            # Try exact match, then string match\n     \
+          \       return mapping.get(value, mapping.get(str(value), str(value)))\n\
+          \            \n    elif config['type'] == 'matrix':\n        if isinstance(value,\
+          \ dict):\n            # Format matrix as a list of \"Row: Col\"\n      \
+          \      items = []\n            for r_k, c_k in value.items():\n        \
+          \        r_label = config['rows'].get(str(r_k), str(r_k))\n            \
+          \    c_label = config['cols'].get(str(c_k), str(c_k))\n                items.append(f\"\
+          {r_label}: {c_label}\")\n            return \"; \".join(items)\n       \
+          \     \n    return str(value)\n\n# ==========================================\n\
+          # 3. Data Processing & Markdown Generation\n# ==========================================\n\
+          \ndef safe_get(data, path, default=None):\n    curr = data\n    for key\
+          \ in path.split('.'):\n        if isinstance(curr, dict) and key in curr:\n\
+          \            curr = curr[key]\n        else:\n            return default\n\
+          \    return curr\n\ndef format_section_list(title, items):\n    if not items:\n\
+          \        return \"\"\n    md = f\"### {title}\\n\"\n    for item in items:\n\
+          \        md += f\"- {item}\\n\"\n    md += \"\\n\"\n    return md\n\ndef\
+          \ format_survey_data(survey_data, mappings):\n    \"\"\"\n    Main function\
+          \ to format the survey dict into Markdown.\n    \"\"\"\n    lines = []\n\
+          \    \n    # --- Header ---\n    inst_name = safe_get(survey_data, \"institution_info.name\"\
+          , \"未知机构\")\n    position = safe_get(survey_data, \"employment_info.current_position\"\
+          , \"未知岗位\")\n    # Translate position if possible\n    position = get_label(position,\
+          \ \"currentPosition\", mappings)\n    \n    city = safe_get(survey_data,\
+          \ \"institution_info.city\", \"未知城市\")\n    date_str = datetime.date.today().isoformat()\n\
+          \    \n    lines.append(f\"# 行业调研报告：{inst_name} - {position}\")\n    lines.append(f\"\
+          > 采集日期: {date_str} | 城市: {city}\")\n    lines.append(\"\")\n\n    # ---\
+          \ 1. 机构概况 ---\n    lines.append(\"## 1. 机构概况\")\n    info = survey_data.get(\"\
+          institution_info\", {})\n    \n    fields_1 = [\n        (\"名称\", \"name\"\
+          , \"orgName\"),\n        (\"性质\", \"subject_type\", \"orgNature\"),\n  \
+          \      (\"形态\", \"specific_form\", \"orgType\"),\n        (\"普惠\", \"is_puhui\"\
+          , \"isPovertyFree\"),\n        (\"服务模式\", \"service_modes\", \"serviceMode\"\
+          ),\n        (\"规模\", None, None) # Composite field\n    ]\n    \n    for\
+          \ label, key, config_key in fields_1:\n        if key:\n            val\
+          \ = info.get(key)\n            display_val = get_label(val, config_key,\
+          \ mappings)\n            lines.append(f\"- **{label}**: {display_val}\"\
+          )\n        elif label == \"规模\":\n            cap = info.get(\"total_capacity\"\
+          , 0)\n            enr = info.get(\"current_enrollment\", 0)\n          \
+          \  stf = info.get(\"staff_count\", 0)\n            lines.append(f\"- **规模**:\
+          \ 托位 {cap} / 在园 {enr} / 员工 {stf}\")\n    lines.append(\"\")\n\n    # ---\
+          \ 2. 受访者画像 ---\n    lines.append(\"## 2. 受访者画像\")\n    personal = survey_data.get(\"\
+          personal_info\", {})\n    employ = survey_data.get(\"employment_info\",\
+          \ {})\n    \n    gender = get_label(personal.get(\"gender\"), \"gender\"\
+          , mappings)\n    edu = get_label(personal.get(\"education\"), \"education\"\
+          , mappings)\n    major = personal.get(\"major\", \"N/A\")\n    lines.append(f\"\
+          - **基本信息**: {gender} | {edu} ({major})\")\n    \n    curr_pos = get_label(employ.get(\"\
+          current_position\"), \"currentPosition\", mappings)\n    lines.append(f\"\
+          - **当前岗位**: {curr_pos}\")\n    if employ.get(\"current_position_other\"\
+          ):\n        lines.append(f\"  - 备注: {employ.get('current_position_other')}\"\
+          )\n        \n    salary = get_label(employ.get(\"salary_range\"), \"salaryRange\"\
+          , mappings)\n    lines.append(f\"- **薪资范围**: {salary}\")\n    \n    interval\
+          \ = get_label(employ.get(\"job_change_interval\"), \"interval\", mappings)\n\
+          \    lines.append(f\"- **换岗频率**: {interval}\")\n    \n    reasons = employ.get(\"\
+          job_change_reasons\")\n    if reasons:\n        reasons_str = get_label(reasons,\
+          \ \"reason\", mappings)\n        lines.append(f\"- **换岗原因**: {reasons_str}\"\
+          )\n        \n    is_trans = employ.get(\"is_kindergarten_transition\")\n\
+          \    if is_trans: # Only show if true or present\n        trans_str = get_label(is_trans,\
+          \ \"isFromTeacherToTeacher\", mappings)\n        lines.append(f\"- **幼儿园转型**:\
+          \ {trans_str}\")\n        needs = employ.get(\"transition_needs\")\n   \
+          \     if needs:\n             lines.append(f\"- **转型提升需求**: {needs}\")\n\
+          \    lines.append(\"\")\n\n    # --- 3. 岗位详情 ---\n    pos_details = survey_data.get(\"\
+          position_details\", {})\n    if pos_details:\n        lines.append(\"##\
+          \ 3. 岗位详情\")\n        \n        # Core Tasks\n        tasks = pos_details.get(\"\
+          core_tasks\")\n        if tasks:\n            # Try to translate tasks if\
+          \ they are keys\n            # Assuming 'coreTasks' config exists\n    \
+          \        task_labels = []\n            if isinstance(tasks, list):\n   \
+          \             # We need to map each item individually because get_label\
+          \ for list joins them\n                # But here we want a markdown list\n\
+          \                config = mappings.get(\"coreTasks\", {})\n            \
+          \    mapping = config.get('map', {})\n                for t in tasks:\n\
+          \                    task_labels.append(mapping.get(str(t), str(t)))\n \
+          \           else:\n                task_labels.append(str(tasks))\n    \
+          \        \n            lines.append(format_section_list(\"核心工作任务\", task_labels))\n\
+          \            \n        # Capability Requirements\n        caps = pos_details.get(\"\
+          capability_requirements\")\n        if caps:\n            # Mapping might\
+          \ be 'trainingNeeds' or 'careSkills' depending on role\n            # We\
+          \ try both or just show raw if not found\n            # A simple heuristic:\
+          \ check if values match keys in trainingNeeds\n            cap_labels =\
+          \ []\n            if isinstance(caps, list):\n                # Try finding\
+          \ a mapping\n                found_map = {}\n                for key in\
+          \ [\"trainingNeeds\", \"careSkills\"]:\n                    if key in mappings:\n\
+          \                        m = mappings[key]['map']\n                    \
+          \    # Check if any cap is in this map\n                        if any(str(c)\
+          \ in m for c in caps):\n                            found_map = m\n    \
+          \                        break\n                \n                for c\
+          \ in caps:\n                    cap_labels.append(found_map.get(str(c),\
+          \ str(c)))\n            else:\n                cap_labels.append(str(caps))\n\
+          \            \n            lines.append(format_section_list(\"能力/培训需求\"\
+          , cap_labels))\n            \n        # Quality Requirements (Matrix)\n\
+          \        quals = pos_details.get(\"quality_requirements\")\n        if quals:\n\
+          \            lines.append(\"### 素质素养要求\")\n            if isinstance(quals,\
+          \ dict):\n                # Use get_label logic for matrix but format as\
+          \ list\n                config = mappings.get(\"competency_matrix\", {})\n\
+          \                if config.get('type') == 'matrix':\n                  \
+          \  for r_k, c_k in quals.items():\n                        r_label = config['rows'].get(str(r_k),\
+          \ str(r_k))\n                        c_label = config['cols'].get(str(c_k),\
+          \ str(c_k))\n                        lines.append(f\"- {r_label}: **{c_label}**\"\
+          )\n                else:\n                    for k, v in quals.items():\n\
+          \                        lines.append(f\"- {k}: {v}\")\n            elif\
+          \ isinstance(quals, list):\n                for q in quals:\n          \
+          \          lines.append(f\"- {q}\")\n            lines.append(\"\")\n\n\
+          \    # --- 4. 管理视角 (园长/负责人) ---\n    manager = survey_data.get(\"manager_specific_info\"\
+          , {})\n    if manager:\n        lines.append(\"## 4. 管理视角\")\n        \n\
+          \        # 4.1 医育结合\n        med = manager.get(\"medical_education_combination\"\
+          , {})\n        if med:\n            lines.append(\"### 医育结合\")\n       \
+          \     forms = med.get(\"forms\", [])\n            if forms:\n          \
+          \      lines.append(f\"- **开展形式**: {', '.join(forms)}\")\n            if\
+          \ med.get(\"partner_institutions\"):\n                lines.append(f\"-\
+          \ **合作机构**: {med.get('partner_institutions')}\")\n            if med.get(\"\
+          cooperation_details\"):\n                lines.append(f\"- **合作详情**: {med.get('cooperation_details')}\"\
+          )\n            lines.append(\"\")\n\n        # 4.2 招聘与培养\n        rec =\
+          \ manager.get(\"recruitment_training\", {})\n        if rec:\n         \
+          \   lines.append(\"### 招聘与培养\")\n            \n            # Shortage Positions\n\
+          \            shortage = rec.get(\"shortage_positions\", [])\n          \
+          \  if shortage:\n                lines.append(\"- **紧缺岗位**:\")\n       \
+          \         for item in shortage:\n                    p = item.get(\"position\"\
+          , \"未知\")\n                    c = item.get(\"count\", 0)\n            \
+          \        lines.append(f\"  - {p}: {c}人\")\n            \n            # Education\
+          \ Reqs\n            edu_reqs = rec.get(\"education_requirements\", [])\n\
+          \            if edu_reqs:\n                lines.append(\"- **学历要求**:\"\
+          )\n                for item in edu_reqs:\n                    p = item.get(\"\
+          position\", \"未知\")\n                    e = item.get(\"education\", \"\
+          N/A\")\n                    lines.append(f\"  - {p}: {e}\")\n          \
+          \  \n            # Certificate Reqs\n            cert_reqs = rec.get(\"\
+          certificate_requirements\", [])\n            if cert_reqs:\n           \
+          \     lines.append(\"- **证书要求**:\")\n                for item in cert_reqs:\n\
+          \                    p = item.get(\"position\", \"未知\")\n              \
+          \      cs = item.get(\"certificates\", [])\n                    cs_str =\
+          \ \", \".join(cs) if isinstance(cs, list) else str(cs)\n               \
+          \     lines.append(f\"  - {p}: {cs_str}\")\n            \n            #\
+          \ Other Lists\n            for field_key, field_label in [\n           \
+          \     (\"recruitment_channels\", \"招聘渠道\"),\n                (\"priority_factors\"\
+          , \"优先因素\"),\n                (\"training_needs\", \"培训需求\"),\n        \
+          \        (\"effective_training_modes\", \"有效培养模式\")\n            ]:\n  \
+          \              val = rec.get(field_key)\n                if val:\n     \
+          \               val_str = \", \".join(val) if isinstance(val, list) else\
+          \ str(val)\n                    lines.append(f\"- **{field_label}**: {val_str}\"\
+          )\n            \n            if rec.get(\"graduate_issues\"):\n        \
+          \        lines.append(f\"- **毕业生问题**: {rec.get('graduate_issues')}\")\n\
+          \                \n        # 4.3 Future & Suggestions (from Config Step\
+          \ 5)\n        future = manager.get(\"future_talent_needs\") # Schema key\
+          \ might differ, checking logic\n        # Schema doesn't explicitly list\
+          \ 'future_talent_needs' in the snippet I saw, \n        # but 'step5Fields'\
+          \ in config has it. \n        # If it's in the data under manager_specific_info\
+          \ (or root?), we handle it.\n        # Assuming it might be in manager_specific_info\
+          \ based on context.\n        if future:\n             # Try mapping\n  \
+          \           future_str = get_label(future, \"futureTalentNeeds\", mappings)\n\
+          \             lines.append(f\"- **未来人才需求**: {future_str}\")\n          \
+          \   \n        sugg = manager.get(\"suggestions\")\n        if sugg:\n  \
+          \          lines.append(f\"- **建议**: {sugg}\")\n\n    return \"\\n\".join(lines)\n\
+          \n\n# ==========================================\n# 4. Metadata Extraction\n\
+          # ==========================================\n\ndef extract_metadata(survey_data,\
+          \ mappings):\n    \"\"\"\n    Extracts structured metadata for RAG filtering.\n\
+          \    Returns a flat dictionary suitable for vector database metadata.\n\
+          \    \"\"\"\n    info = survey_data.get(\"institution_info\", {})\n    personal\
+          \ = survey_data.get(\"personal_info\", {})\n    employ = survey_data.get(\"\
+          employment_info\", {})\n    \n    # Helper to get label or raw value\n \
+          \   def _get(val, key):\n        return get_label(val, key, mappings)\n\n\
+          \    metadata = {\n        # Institution Filters\n        \"org_name\":\
+          \ info.get(\"name\"),\n        \"city\": info.get(\"city\"),\n        \"\
+          org_nature\": _get(info.get(\"subject_type\"), \"orgNature\"),\n       \
+          \ \"org_type\": _get(info.get(\"specific_form\"), \"orgType\"),\n      \
+          \  \"is_puhui\": _get(info.get(\"is_puhui\"), \"isPovertyFree\"),\n    \
+          \    \n        # Personal Filters\n        \"gender\": _get(personal.get(\"\
+          gender\"), \"gender\"),\n        \"education\": _get(personal.get(\"education\"\
+          ), \"education\"),\n        \"major\": personal.get(\"major\"),\n      \
+          \  \n        # Job Filters\n        \"position\": _get(employ.get(\"current_position\"\
+          ), \"currentPosition\"),\n        \"salary_range\": _get(employ.get(\"salary_range\"\
+          ), \"salaryRange\"),\n        \"job_change_interval\": _get(employ.get(\"\
+          job_change_interval\"), \"interval\"),\n        \n        # Timestamp\n\
+          \        \"processed_at\": datetime.date.today().isoformat()\n    }\n  \
+          \  return metadata\n\n# ==========================================\n# 5.\
+          \ Main Execution\n# ==========================================\n\ndef main(survey_data_input,\
+          \ config_path=None):\n    \"\"\"\n    Entry point.\n    args:\n        survey_data_input:\
+          \ dict or json string\n        config_path: path to formConfig.ts\n    \"\
+          \"\"\n    # 1. Parse Input\n    if isinstance(survey_data_input, str):\n\
+          \        try:\n            survey_data = json.loads(survey_data_input)\n\
+          \        except:\n            # Try simple cleanup\n            try:\n \
+          \               clean = survey_data_input.strip()\n                if clean.startswith(\"\
+          ```json\"):\n                    clean = clean[7:-3].strip()\n         \
+          \       elif clean.startswith(\"```\"):\n                    clean = clean[3:-3].strip()\n\
+          \                survey_data = json.loads(clean)\n            except Exception\
+          \ as e:\n                return {\"error\": f\"Invalid JSON input: {e}\"\
+          }\n    else:\n        survey_data = survey_data_input\n\n    # 2. Parse\
+          \ Config\n    mappings = {}\n    if config_path and os.path.exists(config_path):\n\
+          \        try:\n            mappings = parse_ts_config(config_path)\n   \
+          \     except Exception as e:\n            print(f\"Error parsing config:\
+          \ {e}\")\n            # Continue without mappings\n    \n    # 3. Format\n\
+          \    try:\n        markdown = format_survey_data(survey_data, mappings)\n\
+          \        metadata = extract_metadata(survey_data, mappings)\n        \n\
+          \        # Generate filename\n        inst = safe_get(survey_data, \"institution_info.name\"\
+          , \"Survey\")\n        pos = safe_get(survey_data, \"employment_info.current_position\"\
+          , \"User\")\n        date = datetime.date.today().strftime(\"%Y%m%d\")\n\
+          \        doc_name = f\"调研报告_{inst}_{pos}_{date}\"\n        \n        return\
+          \ {\n            \"markdown_content\": markdown,\n            \"metadata\"\
+          : metadata,\n            \"document_name\": doc_name\n        }\n    except\
+          \ Exception as e:\n        return {\n            \"error\": str(e),\n  \
+          \          \"traceback\": traceback.format_exc()\n        }\n\nif __name__\
+          \ == \"__main__\":\n    # Local Test\n    base_dir = os.path.dirname(os.path.abspath(__file__))\n\
+          \    data_dir = os.path.join(base_dir, \"data\")\n    \n    config_file\
+          \ = os.path.join(data_dir, \"formConfig.ts\")\n    test_file = os.path.join(data_dir,\
+          \ \"test_survey_data.json\")\n    \n    if os.path.exists(test_file):\n\
+          \        with open(test_file, 'r', encoding='utf-8') as f:\n           \
+          \ raw_data = f.read()\n            \n        result = main(raw_data, config_file)\n\
+          \        \n        if \"markdown_content\" in result:\n            print(\"\
+          --- Generated Metadata ---\")\n            print(json.dumps(result.get(\"\
+          metadata\", {}), ensure_ascii=False, indent=2))\n            print(\"\\\
+          n--- Generated Markdown ---\")\n            print(result[\"markdown_content\"\
+          ])\n            \n            # Save to file for verification\n        \
+          \    out_file = os.path.join(data_dir, \"test_output_rag.md\")\n       \
+          \     with open(out_file, 'w', encoding='utf-8') as f:\n               \
+          \ f.write(result[\"markdown_content\"])\n            print(f\"\\nSaved to\
+          \ {out_file}\")\n        else:\n            print(\"Error:\", result)\n\
+          \    else:\n        print(\"Test file not found.\")\n"
+        code_language: python3
+        outputs:
+          document_name:
+            children: null
+            type: string
+          markdown_content:
+            children: null
+            type: string
+          metadata:
+            children: null
+            type: object
+        selected: false
+        title: 代码执行 2
+        type: code
+        variables:
+        - value_selector:
+          - '1770029285641'
+          - arg1_obj
+          value_type: object
+          variable: survey_data_input
+      height: 52
+      id: '1770032511617'
+      position:
+        x: 83.110059342802
+        y: 218.17357554203187
+      positionAbsolute:
+        x: 83.110059342802
+        y: 218.17357554203187
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        is_team_authorization: false
+        paramSchemas:
+        - auto_generate: null
+          default: null
+          form: llm
+          human_description:
+            en_US: The ID of the dataset to list metadata fields from
+            ja_JP: メタデータフィールドを一覧表示するデータセットのID
+            pt_BR: O ID do dataset para listar campos de metadados
+            zh_Hans: 要列出元数据字段的数据集ID
+          label:
+            en_US: Dataset ID
+            ja_JP: データセットID
+            pt_BR: ID do Dataset
+            zh_Hans: 数据集ID
+          llm_description: The unique identifier (ID) of the dataset to list metadata
+            fields from. Use list_datasets to get available dataset IDs.
+          max: null
+          min: null
+          name: dataset_id
+          options: []
+          placeholder: null
+          precision: null
+          required: true
+          scope: null
+          template: null
+          type: string
+        params:
+          dataset_id: ''
+        plugin_id: abesticode/knowledge_pro
+        plugin_unique_identifier: abesticode/knowledge_pro:0.0.6@73873eda46ee70c8d528c409381f705f24206d34f913ac4bfee35812c6d4a6e2
+        provider_icon: /console/api/workspaces/current/plugin/icon?tenant_id=72305e0d-3ec5-4ff1-871b-3f11ee2f754a&filename=e03596d3ccb1a28aeb72d3a84a13f70eecc17a0e56fdb7e99bdb362c1508dad3.svg
+        provider_id: abesticode/knowledge_pro/knowledge_pro
+        provider_name: abesticode/knowledge_pro/knowledge_pro
+        provider_type: builtin
+        selected: true
+        title: 列出元数据字段
+        tool_configurations: {}
+        tool_description: 获取Dify知识库中的元数据字段列表
+        tool_label: 列出元数据字段
+        tool_name: list_metadata
+        tool_node_version: '2'
+        tool_parameters:
+          dataset_id:
+            type: mixed
+            value: a2d25759-ee6e-41ce-8822-b319c88faef1
+        type: tool
+      height: 52
+      id: '1770080683035'
+      position:
+        x: 606.3261897789304
+        y: 64.54496440593091
+      positionAbsolute:
+        x: 606.3261897789304
+        y: 64.54496440593091
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        is_team_authorization: true
+        paramSchemas:
+        - auto_generate: null
+          default: null
+          form: llm
+          human_description:
+            en_US: The ID of the dataset containing the document
+            ja_JP: ドキュメントを含むデータセットのID
+            pt_BR: O ID do dataset contendo o documento
+            zh_Hans: 包含文档的数据集ID
+          label:
+            en_US: Dataset ID
+            ja_JP: データセットID
+            pt_BR: ID do Dataset
+            zh_Hans: 数据集ID
+          llm_description: The unique identifier (ID) of the dataset containing the
+            document.
+          max: null
+          min: null
+          name: dataset_id
+          options: []
+          placeholder: null
+          precision: null
+          required: true
+          scope: null
+          template: null
+          type: string
+        - auto_generate: null
+          default: null
+          form: llm
+          human_description:
+            en_US: The ID of the document to update metadata for
+            ja_JP: メタデータを更新するドキュメントのID
+            pt_BR: O ID do documento para atualizar metadados
+            zh_Hans: 要更新元数据的文档ID
+          label:
+            en_US: Document ID
+            ja_JP: ドキュメントID
+            pt_BR: ID do Documento
+            zh_Hans: 文档ID
+          llm_description: The unique identifier (ID) of the document to update metadata
+            for. Use list_documents to get available document IDs.
+          max: null
+          min: null
+          name: document_id
+          options: []
+          placeholder: null
+          precision: null
+          required: true
+          scope: null
+          template: null
+          type: string
+        - auto_generate: null
+          default: null
+          form: llm
+          human_description:
+            en_US: The ID of the metadata field to set
+            ja_JP: 設定するメタデータフィールドのID
+            pt_BR: O ID do campo de metadados a ser definido
+            zh_Hans: 要设置的元数据字段ID
+          label:
+            en_US: Metadata Field ID
+            ja_JP: メタデータフィールドID
+            pt_BR: ID do Campo de Metadados
+            zh_Hans: 元数据字段ID
+          llm_description: The unique identifier (ID) of the metadata field to set.
+            Use list_metadata to get available metadata field IDs.
+          max: null
+          min: null
+          name: metadata_id
+          options: []
+          placeholder: null
+          precision: null
+          required: true
+          scope: null
+          template: null
+          type: string
+        - auto_generate: null
+          default: null
+          form: llm
+          human_description:
+            en_US: The name of the metadata field
+            ja_JP: メタデータフィールドの名前
+            pt_BR: O nome do campo de metadados
+            zh_Hans: 元数据字段的名称
+          label:
+            en_US: Metadata Field Name
+            ja_JP: メタデータフィールド名
+            pt_BR: Nome do Campo de Metadados
+            zh_Hans: 元数据字段名称
+          llm_description: The name of the metadata field. This must match the field
+            name defined in the dataset.
+          max: null
+          min: null
+          name: metadata_name
+          options: []
+          placeholder: null
+          precision: null
+          required: true
+          scope: null
+          template: null
+          type: string
+        - auto_generate: null
+          default: null
+          form: llm
+          human_description:
+            en_US: The value to set for the metadata field
+            ja_JP: メタデータフィールドに設定する値
+            pt_BR: O valor a ser definido para o campo de metadados
+            zh_Hans: 要设置的元数据字段值
+          label:
+            en_US: Metadata Value
+            ja_JP: メタデータ値
+            pt_BR: Valor do Metadados
+            zh_Hans: 元数据值
+          llm_description: The value to assign to the metadata field for this document.
+          max: null
+          min: null
+          name: metadata_value
+          options: []
+          placeholder: null
+          precision: null
+          required: true
+          scope: null
+          template: null
+          type: string
+        params:
+          dataset_id: ''
+          document_id: ''
+          metadata_id: ''
+          metadata_name: ''
+          metadata_value: ''
+        plugin_id: abesticode/knowledge_pro
+        plugin_unique_identifier: abesticode/knowledge_pro:0.0.6@73873eda46ee70c8d528c409381f705f24206d34f913ac4bfee35812c6d4a6e2
+        provider_icon: /console/api/workspaces/current/plugin/icon?tenant_id=72305e0d-3ec5-4ff1-871b-3f11ee2f754a&filename=e03596d3ccb1a28aeb72d3a84a13f70eecc17a0e56fdb7e99bdb362c1508dad3.svg
+        provider_id: abesticode/knowledge_pro/knowledge_pro
+        provider_name: abesticode/knowledge_pro/knowledge_pro
+        provider_type: builtin
+        selected: false
+        title: 更新文档元数据
+        tool_configurations: {}
+        tool_description: 更新Dify知识库中文档的元数据值
+        tool_label: 更新文档元数据
+        tool_name: update_document_metadata
+        tool_node_version: '2'
+        tool_parameters:
+          dataset_id:
+            type: mixed
+            value: a2d25759-ee6e-41ce-8822-b319c88faef1
+          document_id:
+            type: mixed
+            value: null
+          metadata_id:
+            type: mixed
+            value: null
+          metadata_name:
+            type: mixed
+            value: null
+          metadata_value:
+            type: mixed
+            value: null
+        type: tool
+      height: 52
+      id: '1770080966620'
+      position:
+        x: 950.7660296539399
+        y: 51.22025688907087
+      positionAbsolute:
+        x: 950.7660296539399
+        y: 51.22025688907087
+      selected: true
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    viewport:
+      x: -247.88974808340254
+      y: 278.7159329713717
+      zoom: 0.8255340679021599
+  rag_pipeline_variables:
+  - allow_file_extension: null
+    allow_file_upload_methods: null
+    allowed_file_types: null
+    belong_to_node_id: '1753688365254'
+    default_value: null
+    label: URL
+    max_length: 256
+    options: []
+    placeholder: null
+    required: true
+    tooltips: null
+    type: text-input
+    unit: null
+    variable: jina_reader_url
+  - allow_file_extension: null
+    allow_file_upload_methods: null
+    allowed_file_types: null
+    belong_to_node_id: '1753688365254'
+    default_value: 10
+    label: Limit
+    max_length: 48
+    options: []
+    placeholder: null
+    required: true
+    tooltips: null
+    type: number
+    unit: pages
+    variable: jina_reader_imit
+  - allow_file_extension: null
+    allow_file_upload_methods: null
+    allowed_file_types: null
+    belong_to_node_id: '1753688365254'
+    default_value: true
+    label: Crawl sub-pages
+    max_length: 48
+    options: []
+    placeholder: null
+    required: true
+    tooltips: null
+    type: checkbox
+    unit: null
+    variable: Crawl_sub_pages_2
+  - allow_file_extension: null
+    allow_file_upload_methods: null
+    allowed_file_types: null
+    belong_to_node_id: '1753688365254'
+    default_value: true
+    label: Use sitemap
+    max_length: 48
+    options: []
+    placeholder: null
+    required: false
+    tooltips: null
+    type: checkbox
+    unit: null
+    variable: Use_sitemap
+  - allow_file_extension: null
+    allow_file_upload_methods: null
+    allowed_file_types: null
+    belong_to_node_id: '1756896212061'
+    default_value: null
+    label: URL
+    max_length: 256
+    options: []
+    placeholder: null
+    required: true
+    tooltips: null
+    type: text-input
+    unit: null
+    variable: jina_url
+  - allow_file_extension: null
+    allow_file_upload_methods: null
+    allowed_file_types: null
+    belong_to_node_id: '1756896212061'
+    default_value: 10
+    label: Limit
+    max_length: 48
+    options: []
+    placeholder: null
+    required: true
+    tooltips: null
+    type: number
+    unit: pages
+    variable: jina_limit
+  - allow_file_extension: null
+    allow_file_upload_methods: null
+    allowed_file_types: null
+    belong_to_node_id: '1756896212061'
+    default_value: true
+    label: Use sitemap
+    max_length: 48
+    options: []
+    placeholder: null
+    required: false
+    tooltips: Follow the sitemap to crawl the site. If not, Jina Reader will crawl
+      iteratively based on page relevance, yielding fewer but higher-quality pages.
+    type: checkbox
+    unit: null
+    variable: jian_sitemap
+  - allow_file_extension: null
+    allow_file_upload_methods: null
+    allowed_file_types: null
+    belong_to_node_id: '1756896212061'
+    default_value: true
+    label: Crawl subpages
+    max_length: 48
+    options: []
+    placeholder: null
+    required: false
+    tooltips: null
+    type: checkbox
+    unit: null
+    variable: jina_subpages
+  - allow_file_extension: null
+    allow_file_upload_methods: null
+    allowed_file_types: null
+    belong_to_node_id: '1756907397615'
+    default_value: null
+    label: URL
+    max_length: 256
+    options: []
+    placeholder: null
+    required: true
+    tooltips: null
+    type: text-input
+    unit: null
+    variable: firecrawl_url1
+  - allow_file_extension: null
+    allow_file_upload_methods: null
+    allowed_file_types: null
+    belong_to_node_id: '1756907397615'
+    default_value: true
+    label: firecrawl_subpages
+    max_length: 48
+    options: []
+    placeholder: null
+    required: false
+    tooltips: null
+    type: checkbox
+    unit: null
+    variable: firecrawl_subpages
+  - allow_file_extension: null
+    allow_file_upload_methods: null
+    allowed_file_types: null
+    belong_to_node_id: '1756907397615'
+    default_value: null
+    label: Exclude paths
+    max_length: 256
+    options: []
+    placeholder: blog/*,/about/*
+    required: false
+    tooltips: null
+    type: text-input
+    unit: null
+    variable: exclude_paths
+  - allow_file_extension: null
+    allow_file_upload_methods: null
+    allowed_file_types: null
+    belong_to_node_id: '1756907397615'
+    default_value: null
+    label: include_paths
+    max_length: 256
+    options: []
+    placeholder: articles/*
+    required: false
+    tooltips: null
+    type: text-input
+    unit: null
+    variable: include_paths
+  - allow_file_extension: null
+    allow_file_upload_methods: null
+    allowed_file_types: null
+    belong_to_node_id: '1756907397615'
+    default_value: 0
+    label: Max depth
+    max_length: 48
+    options: []
+    placeholder: null
+    required: false
+    tooltips: Maximum depth to crawl relative to the entered URL. Depth 0 just scrapes
+      the page of the entered url, depth 1 scrapes the url and everything after enteredURL
+      + one /, and so on.
+    type: number
+    unit: null
+    variable: max_depth
+  - allow_file_extension: null
+    allow_file_upload_methods: null
+    allowed_file_types: null
+    belong_to_node_id: '1756907397615'
+    default_value: 10
+    label: Limit
+    max_length: 48
+    options: []
+    placeholder: null
+    required: true
+    tooltips: null
+    type: number
+    unit: null
+    variable: max_pages
+  - allow_file_extension: null
+    allow_file_upload_methods: null
+    allowed_file_types: null
+    belong_to_node_id: '1756907397615'
+    default_value: true
+    label: Extract only main content (no headers, navs, footers, etc.)
+    max_length: 48
+    options: []
+    placeholder: null
+    required: false
+    tooltips: null
+    type: checkbox
+    unit: null
+    variable: main_content
+  - allow_file_extension: null
+    allow_file_upload_methods: null
+    allowed_file_types: null
+    belong_to_node_id: shared
+    default_value: paragraph
+    label: Parent Mode
+    max_length: 48
+    options:
+    - paragraph
+    - full_doc
+    placeholder: null
+    required: true
+    tooltips: 'Parent Mode provides two options: paragraph mode splits text into paragraphs
+      as parent chunks for retrieval, while full_doc mode uses the entire document
+      as a single parent chunk (text beyond 10,000 tokens will be truncated).'
+    type: select
+    unit: null
+    variable: parent_mode
+  - allow_file_extension: null
+    allow_file_upload_methods: null
+    allowed_file_types: null
+    belong_to_node_id: shared
+    default_value: \n\n
+    label: Parent Delimiter
+    max_length: 48
+    options: []
+    placeholder: null
+    required: false
+    tooltips: A delimiter is the character used to separate text. \n\n is recommended
+      for splitting the original document into large parent chunks. You can also use
+      special delimiters defined by yourself.
+    type: text-input
+    unit: null
+    variable: parent_dilmiter
+  - allow_file_extension: null
+    allow_file_upload_methods: null
+    allowed_file_types: null
+    belong_to_node_id: shared
+    default_value: 1024
+    label: Maximum Parent Length
+    max_length: 48
+    options: []
+    placeholder: null
+    required: false
+    tooltips: null
+    type: number
+    unit: tokens
+    variable: parent_length
+  - allow_file_extension: null
+    allow_file_upload_methods: null
+    allowed_file_types: null
+    belong_to_node_id: shared
+    default_value: \n
+    label: Child Delimiter
+    max_length: 48
+    options: []
+    placeholder: null
+    required: true
+    tooltips: A delimiter is the character used to separate text. \n is recommended
+      for splitting parent chunks into small child chunks. You can also use special
+      delimiters defined by yourself.
+    type: text-input
+    unit: null
+    variable: child_delimiter
+  - allow_file_extension: null
+    allow_file_upload_methods: null
+    allowed_file_types: null
+    belong_to_node_id: shared
+    default_value: 256
+    label: Maximum Child Length
+    max_length: 48
+    options: []
+    placeholder: null
+    required: true
+    tooltips: null
+    type: number
+    unit: tokens
+    variable: child_length
+  - allow_file_extension: null
+    allow_file_upload_methods: null
+    allowed_file_types: null
+    belong_to_node_id: shared
+    default_value: true
+    label: Replace consecutive spaces, newlines and tabs.
+    max_length: 48
+    options: []
+    placeholder: null
+    required: false
+    tooltips: null
+    type: checkbox
+    unit: null
+    variable: clean_1
+  - allow_file_extension: null
+    allow_file_upload_methods: null
+    allowed_file_types: null
+    belong_to_node_id: shared
+    default_value: null
+    label: Delete all URLs and email addresses.
+    max_length: 48
+    options: []
+    placeholder: null
+    required: false
+    tooltips: null
+    type: checkbox
+    unit: null
+    variable: clean_2
