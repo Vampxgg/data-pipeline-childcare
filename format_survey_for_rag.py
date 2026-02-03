@@ -439,7 +439,15 @@ def extract_metadata(survey_data, mappings):
         # Timestamp
         "processed_at": datetime.date.today().isoformat()
     }
-    return metadata
+    
+    # Convert to list for Dify Iteration
+    # Format: [{"key": "field_name", "value": "field_value"}]
+    metadata_list = []
+    for k, v in metadata.items():
+        if v: # Only add non-empty values
+            metadata_list.append({"key": k, "value": str(v)})
+            
+    return metadata_list
 
 # ==========================================
 # 5. Main Execution
@@ -482,7 +490,7 @@ def main(survey_data_input, config_path=None):
     # 3. Format
     try:
         markdown = format_survey_data(survey_data, mappings)
-        metadata = extract_metadata(survey_data, mappings)
+        metadata_list = extract_metadata(survey_data, mappings)
         
         # Generate filename
         inst = safe_get(survey_data, "institution_info.name", "Survey")
@@ -492,7 +500,7 @@ def main(survey_data_input, config_path=None):
         
         return {
             "markdown_content": markdown,
-            "metadata": metadata,
+            "metadata_list": metadata_list,
             "document_name": doc_name
         }
     except Exception as e:

@@ -1556,7 +1556,7 @@ workflow:
           ), \"salaryRange\"),\n        \"job_change_interval\": _get(employ.get(\"\
           job_change_interval\"), \"interval\"),\n        \n        # Timestamp\n\
           \        \"processed_at\": datetime.date.today().isoformat()\n    }\n  \
-          \  return metadata\n\n# ==========================================\n# 5.\
+          \  \n    # Convert to list for Dify Iteration\n    # Format: [{\"key\": \"field_name\", \"value\": \"field_value\"}]\n    metadata_list = []\n    for k, v in metadata.items():\n        if v: # Only add non-empty values\n            metadata_list.append({\"key\": k, \"value\": str(v)})\n            \n    return metadata_list\n\n# ==========================================\n# 5.\
           \ Main Execution\n# ==========================================\n\ndef main(survey_data_input,\
           \ config_path=None):\n    \"\"\"\n    Entry point.\n    args:\n        survey_data_input:\
           \ dict or json string\n        config_path: path to formConfig.ts\n    \"\
@@ -1574,13 +1574,13 @@ workflow:
           \     except Exception as e:\n            print(f\"Error parsing config:\
           \ {e}\")\n            # Continue without mappings\n    \n    # 3. Format\n\
           \    try:\n        markdown = format_survey_data(survey_data, mappings)\n\
-          \        metadata = extract_metadata(survey_data, mappings)\n        \n\
+          \        metadata_list = extract_metadata(survey_data, mappings)\n        \n\
           \        # Generate filename\n        inst = safe_get(survey_data, \"institution_info.name\"\
           , \"Survey\")\n        pos = safe_get(survey_data, \"employment_info.current_position\"\
           , \"User\")\n        date = datetime.date.today().strftime(\"%Y%m%d\")\n\
           \        doc_name = f\"调研报告_{inst}_{pos}_{date}\"\n        \n        return\
-          \ {\n            \"markdown_content\": markdown,\n            \"metadata\"\
-          : metadata,\n            \"document_name\": doc_name\n        }\n    except\
+          \ {\n            \"markdown_content\": markdown,\n            \"metadata_list\"\
+          : metadata_list,\n            \"document_name\": doc_name\n        }\n    except\
           \ Exception as e:\n        return {\n            \"error\": str(e),\n  \
           \          \"traceback\": traceback.format_exc()\n        }\n\nif __name__\
           \ == \"__main__\":\n    # Local Test\n    base_dir = os.path.dirname(os.path.abspath(__file__))\n\
@@ -1591,7 +1591,7 @@ workflow:
           \ raw_data = f.read()\n            \n        result = main(raw_data, config_file)\n\
           \        \n        if \"markdown_content\" in result:\n            print(\"\
           --- Generated Metadata ---\")\n            print(json.dumps(result.get(\"\
-          metadata\", {}), ensure_ascii=False, indent=2))\n            print(\"\\\
+          metadata_list\", []), ensure_ascii=False, indent=2))\n            print(\"\\\
           n--- Generated Markdown ---\")\n            print(result[\"markdown_content\"\
           ])\n            \n            # Save to file for verification\n        \
           \    out_file = os.path.join(data_dir, \"test_output_rag.md\")\n       \
@@ -1607,9 +1607,10 @@ workflow:
           markdown_content:
             children: null
             type: string
-          metadata:
+          metadata_list:
             children: null
-            type: object
+            type: array_object
+
         selected: false
         title: 代码执行 2
         type: code

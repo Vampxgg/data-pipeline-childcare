@@ -1,0 +1,1422 @@
+# coding: utf-8
+import asyncio
+import httpx
+import os
+import pprint
+import re
+from datetime import datetime
+from typing import Dict, Any, List, Optional, Set, Tuple
+from collections import defaultdict
+
+
+# --- 配置管理 ---
+class Config:
+    # 替换为您的实际配置
+    BASE_IP = os.getenv("DIFY_API_BASE_IP", "119.45.167.133:5125")
+    AUTH_TOKEN = os.getenv("DIFY_API_AUTH_TOKEN", "dataset-pJ11Qq6BAfhYR4AJfLGtulbv")
+    SILICONFLOW_API_KEY = os.getenv("SILICONFLOW_API_KEY", "sk-zdxzbykdzqbmpjlnasfjpapuzdkupupghxsaopftaqnvyfrv")
+    SILICONFLOW_RERANK_URL = "https://api.siliconflow.cn/v1/rerank"
+    RERANK_MODEL = "BAAI/bge-reranker-v2-m3"
+    IS_DEBUG = True
+    TIMEOUT = 90
+
+
+# --- 调试辅助 ---
+def debug_print(data: Any, label: str = "DEBUG"):
+    if Config.IS_DEBUG:
+        print(f"\n{'=' * 30} {label} {'=' * 30}")
+        pprint.pprint(data, indent=2, width=120)
+        print("=" * 70 + "\n")
+    return data
+
+
+# --- 模块一：Dify API 客户端 ---
+class DifyApiClient:
+    """负责与 Dify Dataset 服务通信，并清洗数据"""
+
+    def __init__(self):
+        self.base_url = f"http://{Config.BASE_IP}/v1/datasets"
+        self.headers = {
+            'Authorization': f'Bearer {Config.AUTH_TOKEN}',
+            'Content-Type': 'application/json'
+        }
+        self.client = httpx.AsyncClient(headers=self.headers, timeout=Config.TIMEOUT)
+
+    async def close(self):
+        if not self.client.is_closed:
+            await self.client.aclose()
+
+    async def fetch_document_detail(self, database_id: str, document_id: str) -> Dict[str, Any]:
+        url = f"{self.base_url}/{database_id}/documents/{document_id}"
+        try:
+            resp = await self.client.get(url)
+            resp.raise_for_status()
+            return resp.json()
+        except Exception as e:
+            print(f"⚠️ [Meta Error] DB: {database_id}, Doc: {document_id} - {e}")
+            return {}
+
+    async def fetch_all_segments(self, database_id: str, document_id: str) -> List[Dict]:
+        """通过分页循环，获取一个文档下的所有切片"""
+        all_segments = []
+        page = 1
+        # 注意：这里的 URL 需要根据您的 Dify 版本确认。
+        # 原代码逻辑是 /datasets/{db}/documents/{doc}/segments
+        url = f"{self.base_url}/{database_id}/documents/{document_id}/segments"
+
+        while True:
+            params = {'limit': 100, 'page': page}  # Dify 最大 limit 通常是 100
+            success = False
+            for attempt in range(3):
+                try:
+                    resp = await self.client.get(url, params=params)
+                    resp.raise_for_status()
+                    data = resp.json()
+
+                    segments = data.get("data", [])
+                    if not segments: 
+                        success = True
+                        break
+
+                    all_segments.extend(segments)
+
+                    if not data.get("has_more", False):
+                        success = True
+                        break
+                    
+                    success = True
+                    break
+                except Exception as e:
+                    if attempt < 2:
+                        await asyncio.sleep(1)
+                        continue
+                    print(f"⚠️ [Fetch Segments Error] DB:{database_id} Doc:{document_id} Page:{page} - {type(e).__name__}: {e}")
+            
+            if not success:
+                break
+            
+            if not data.get("has_more", False):
+                break
+            page += 1
+
+        return all_segments
+
+    async def retrieve(self, query: str, payload: Dict[str, Any]) -> List[Dict[str, Any]]:
+        # 提取 Dify 接口需要的 Database ID
+        db_id = payload.pop("database_id_for_url")
+        url = f"{self.base_url}/{db_id}/retrieve"
+
+        # 构造 Dify 标准请求体
+        req_body = {
+            "query": query,
+            "retrieval_model": {
+                "search_method": "hybrid_search",
+                "reranking_enable": False,
+                "top_k": 100,  # 尽可能多召回，让后续 RRF 和外部 Rerank 决定排名
+                "score_threshold_enabled": False,
+            }
+        }
+        if "metadata_filtering_conditions" in payload:
+            req_body["retrieval_model"]["metadata_filtering_conditions"] = payload["metadata_filtering_conditions"]
+
+        try:
+            resp = await self.client.post(url, json=req_body)
+            resp.raise_for_status()
+            data = resp.json()
+
+            # 数据清洗：将 Dify 复杂的嵌套结构扁平化
+            clean_results = []
+            for rec in data.get("records", []):
+                seg = rec.get("segment", {})
+                d = seg.get("document", {})
+                if seg.get("content"):
+                    clean_results.append({
+                        "id": seg.get("id"),
+                        "chunk_id": seg.get("id"),  # 关键 ID，用于去重
+                        "content": seg.get("content", ""),
+                        "score": rec.get("score", 0.0),  # 原始分数
+                        "database_id": db_id,
+                        "document_id": seg.get("document_id"),
+                        "document_name": d.get("name"),
+                        "position": seg.get("position", 0),
+                        "doc_metadata": d.get("doc_metadata") or d.get("metadata") or {}
+                    })
+            return clean_results
+        except Exception as e:
+            print(f"⚠️ [Retrieve Error] Query: '{query}' - {e}")
+            return []
+
+
+# --- 模块二：RAG 服务 (算法核心) ---
+class RagService:
+    @staticmethod
+    def reciprocal_rank_fusion(list_of_lists: List[List[Dict]], k: int = 60) -> List[Dict]:
+        """
+        【修正版 RRF】
+        输入：List[List[Dict]] -> 包含多个 Query 检索结果的列表
+        逻辑：平行投票。每个列表的第 n 名享有同等的权重。
+        """
+        scores = defaultdict(float)
+        obj_map = {}
+
+        # 外层循环：遍历不同的 Query 来源 (Q1, Q2, Q3...)
+        for ranked_list in list_of_lists:
+            if not ranked_list: continue
+
+            # 内层循环：遍历该 Query 下的排名
+            for rank, item in enumerate(ranked_list):
+                cid = item.get('chunk_id')
+                if not cid: continue
+
+                # 记录对象以便最后返回
+                if cid not in obj_map:
+                    obj_map[cid] = item
+
+                # 累加 RRF 分数
+                scores[cid] += 1.0 / (k + rank)
+
+        # 按融合分数降序排列
+        sorted_ids = sorted(scores.keys(), key=lambda x: scores[x], reverse=True)
+        return [obj_map[uid] for uid in sorted_ids]
+
+    @staticmethod
+    async def compute_rerank_scores(query: str, chunks: List[Dict]) -> List[Dict]:
+        """
+        【优化版 Rerank】
+        1. 使用 httpx 异步调用，不阻塞。
+        2. 全量打分 (top_n = len)，不进行截断，将截断权交给下游业务。
+        """
+        if not chunks: return []
+
+        # 限制单次最大打分数量，防止 HTTP 包过大 (可按需调整)
+        candidates = chunks[:100]
+        doc_contents = [c["content"] for c in candidates]
+
+        payload = {
+            "model": Config.RERANK_MODEL,
+            "query": query,
+            "documents": doc_contents,
+            "return_documents": False,
+            "top_n": len(doc_contents)  # 关键：返回所有候选的分数
+        }
+        headers = {
+            "Authorization": f"Bearer {Config.SILICONFLOW_API_KEY}",
+            "Content-Type": "application/json"
+        }
+
+        try:
+            # 使用临时 Client 或单例 Client 均可，此处使用上下文管理器确保连接关闭
+            async with httpx.AsyncClient(timeout=30) as temp_client:
+                resp = await temp_client.post(Config.SILICONFLOW_RERANK_URL, json=payload, headers=headers)
+                resp.raise_for_status()
+                data = resp.json()
+
+            results = data.get("results", [])
+
+            # 将新分数回填入 Chunk 对象
+            scored_chunks = []
+            for item in results:
+                original_idx = item["index"]
+                new_score = item["relevance_score"]
+
+                chunk = candidates[original_idx].copy()
+                chunk["score"] = round(new_score, 4)  # 更新为模型重排分
+                scored_chunks.append(chunk)
+
+            return scored_chunks  # 返回已打分的列表，顺序通常已经是降序
+
+        except Exception as e:
+            print(f"⚠️ [Rerank Failed] {e}. Falling back to RRF results.")
+            # 降级策略：如果重排失败，直接返回原始列表（保留 RRF 排序）
+            return chunks
+
+
+# --- 模块三：流程编排器 (业务逻辑) ---
+class RetrievalOrchestrator:
+    def __init__(self, api_client: DifyApiClient):
+        self.api = api_client
+        self.doc_meta_cache = {}  # 缓存 (db_id, doc_id) -> Detail info
+
+    async def prefetch_metadata(self, tasks: List[Dict]):
+        """Stage 0: 预加载文档元数据，减少后续循环中的 API 调用"""
+        print("🚀 [Init] Prefetching document metadata...")
+        needed = set()
+        for t in tasks:
+            if t.get("document_id") and t.get("database_id"):
+                needed.add((t["database_id"], t["document_id"]))
+
+        if not needed: return
+
+        # 并发获取
+        coros = [self.api.fetch_document_detail(db, doc) for db, doc in needed]
+        results = await asyncio.gather(*coros, return_exceptions=True)
+
+        for (key, detail) in zip(needed, results):
+            if detail:
+                self.doc_meta_cache[key] = detail
+
+            # 1. 提取 Ugly List -> Clean Dict
+            raw_meta_list = detail.get("doc_metadata", [])
+            clean_meta = ContentFormatter.clean_metadata(raw_meta_list)
+            # 2. 补充 Root Level 的关键信息到 metadata 中 (比如 doc_form)
+            # 有时候 document info 在外面，不在 doc_metadata list 里
+            if "doc_form" in detail:
+                clean_meta["doc_form"] = detail["doc_form"]
+
+            # 3. 构造极简 Cache 对象
+            self.doc_meta_cache[key] = {
+                "id": detail.get("id"),
+                "name": detail.get("name"),
+                "doc_metadata": clean_meta,  # 只有这是一个干净的字典
+                "_source": "api_detail"  # 标记来源
+            }
+        print(self.doc_meta_cache)
+
+    def build_execution_plan(self, tasks: List[Dict]) -> List[Dict]:
+        """Stage 1: 构建高效检索计划，合并相同 DB 的请求"""
+        # 数据结构: db_id -> {doc_names: set, include_full: bool}
+        plan_map = defaultdict(lambda: {"doc_names": set(), "include_full": False})
+
+        for t in tasks:
+            db = t.get("database_id")
+            if not db: continue
+
+            mode = t.get("retrieval_mode")
+            if mode == "segment_retrieval":
+                d_id = t.get("document_id")
+                # 从缓存中拿名字 (Dify 过滤依赖名字)
+                meta = self.doc_meta_cache.get((db, d_id))
+                if meta and meta.get("name"):
+                    plan_map[db]["doc_names"].add(meta["name"])
+            elif mode == "full_database_retrieval":
+                plan_map[db]["include_full"] = True
+
+        # 生成实际的 Job Payloads
+        jobs = []
+        for db_id, constraints in plan_map.items():
+            # Job A: 带 Metadata Filter 的检索 (针对指定文档)
+            if constraints["doc_names"]:
+                names = list(constraints["doc_names"])
+                filter_cond = {
+                    "logical_operator": "or" if len(names) > 1 else "and",
+                    "conditions": [{"name": "document_name", "comparison_operator": "is", "value": n} for n in names]
+                }
+                jobs.append({
+                    "database_id_for_url": db_id,
+                    "metadata_filtering_conditions": filter_cond
+                })
+
+            # Job B: 全库检索 (如果需要)
+            if constraints["include_full"]:
+                jobs.append({"database_id_for_url": db_id})
+
+        return jobs
+
+    def _inject_metadata_from_search_results(self, chunks: List[Dict]):
+        """从搜索结果注入时，也保持结构一致"""
+        for c in chunks:
+            key = (c["database_id"], c["document_id"])
+            existing = self.doc_meta_cache.get(key)
+
+            # 如果已有全量详情，跳过
+            if existing and existing.get("_source") == "api_detail":
+                continue
+            # 注入搜索快照
+            if c.get("doc_metadata") or c.get("document_name"):
+                # 注意 retrieve 应该已经把 c["doc_metadata"] 洗成字典了
+                self.doc_meta_cache[key] = {
+                    "id": c["document_id"],
+                    "name": c["document_name"],
+                    "doc_metadata": c["doc_metadata"],  # 也是干净的字典
+                    "_source": "retrieve_snapshot"
+                }
+
+    def distribute_chunks_to_tasks(self, scored_chunks: List[Dict], tasks: List[Dict]) -> List[Dict]:
+        """
+        Stage 4: 库存分发 (Inventory Slicing)
+        将打好分的大列表，按照 Task 的需求（文档ID、TopK）分发出去。
+        """
+        # 1. 建立库存索引：DB -> Doc -> Chunks
+        inventory = defaultdict(lambda: defaultdict(list))
+        for c in scored_chunks:
+            inventory[c['database_id']][c['document_id']].append(c)
+
+        final_results = []
+        used_chunk_ids = set()  # 用于全库检索时防止重复
+
+        # 2. 遍历 Task 进行“进货”
+        for task in tasks:
+            mode = task.get("retrieval_mode")
+            db = task.get("database_id")
+            top_k = task.get("top_k", 20)
+
+            candidates = []
+
+            if mode == "segment_retrieval":
+                # 只取特定文档的库存
+                doc_id = task.get("document_id")
+                candidates = inventory.get(db, {}).get(doc_id, [])
+
+            elif mode == "full_database_retrieval":
+                # 取该 DB 下所有文档的库存
+                docs_in_db = inventory.get(db, {})
+                for doc_chunks in docs_in_db.values():
+                    candidates.extend(doc_chunks)
+
+            # 3. 排序并截断 (基于 Rerank 分数)
+            # 注意：candidates 是引用，这里 sort 不会影响原始库存列表的完整性，
+            # 但为了安全，Rerank 步骤通常已经排好序了，这里只是再次确保。
+            candidates.sort(key=lambda x: x["score"], reverse=True)
+
+            # 4. 选取 Top K (带去重逻辑)
+            picked_count = 0
+            for c in candidates:
+                if picked_count >= top_k:
+                    break
+
+                # 如果是 segment 任务，直接拿；如果是 full 任务，避免拿重复的(如果前面 segment 任务拿过了)
+                # 注：这里的逻辑取决于：是否允许同一个 chunk 出现在不同的 Task 结果中？
+                # 如果 Dify 要求每个 chunk 只能出现一次，保持这个 if。
+                # 如果允许不同 Task 包含相同 chunk，可移除 check。
+                if c['chunk_id'] not in used_chunk_ids:
+                    final_results.append(c)
+                    used_chunk_ids.add(c['chunk_id'])
+                    picked_count += 1
+
+        return final_results
+
+    # 在 RetrievalOrchestrator 类中更新/添加此方法
+
+    # async def process_full_document_task(self, task: Dict) -> Dict:
+    #     """
+    #     处理全文档任务。
+    #     关键点：返回的结构必须与 format_output 生成的结构完全一致（Schema Alignment）。
+    #     """
+    #     db_id = task.get("database_id")
+    #     doc_id = task.get("document_id")
+    #
+    #     # 1. 尝试从缓存拿 Meta，拿不到就去 Fetch
+    #     # 这里的 fetch_document_detail 内部应实现防重复请求，或者依赖外部 prefetch
+    #     doc_meta = self.doc_meta_cache.get((db_id, doc_id))
+    #
+    #     # 2. 获取全部分段 (如果 Meta 没拿到，这里并发去拿 Meta 和 Segments)
+    #     tasks_list = [self.api.fetch_all_segments(db_id, doc_id)]
+    #     if not doc_meta:
+    #         tasks_list.append(self.api.fetch_document_detail(db_id, doc_id))
+    #
+    #     results = await asyncio.gather(*tasks_list)
+    #     all_segments = results[0]
+    #
+    #     # 如果刚才并发取了 Meta，更新一下
+    #     if not doc_meta and len(results) > 1:
+    #         doc_meta = results[1]
+    #         if doc_meta:
+    #             self.doc_meta_cache[(db_id, doc_id)] = doc_meta
+    #
+    #     # 安全取值
+    #     doc_name = doc_meta.get("name", "Unknown") if doc_meta else "Unknown"
+    #     doc_metadata_dict = doc_meta.get("doc_metadata") or doc_meta.get("metadata") or {}
+    #
+    #     # 3. 排序分段 (保证阅读顺序)
+    #     all_segments.sort(key=lambda x: x.get('position', float('inf')))
+    #
+    #     # 4. 构造 Content Blocks
+    #     content_blocks = [
+    #         {
+    #             "position": s.get("position"),
+    #             "content": s.get("content", ""),
+    #             "score": None  # 全文档默认满分，表示是硬性指定的
+    #         }
+    #         for s in all_segments
+    #     ]
+    #
+    #     # 5. 【关键】返回标准化结构 (Standardized Schema)
+    #     # 这就是必须放入 retrieve_data 里的那个对象
+    #     return {
+    #         "database_id": db_id,
+    #         "document_infos": [
+    #             {
+    #                 "doc_metadata": doc_metadata_dict,
+    #                 "document_id": doc_id,
+    #                 "document_name": doc_name,
+    #                 "source_type": "document",  # 区别于 'excerpt'
+    #                 "content_blocks": content_blocks
+    #             }
+    #         ]
+    #     }
+
+    async def process_full_document_task(self, task: Dict) -> Dict:
+        """
+        处理全文档任务 (适配多模态)。
+        """
+        db_id = task.get("database_id")
+        doc_id = task.get("document_id")
+        print(db_id, doc_id)
+        # 1. 获取元数据和全部分段
+        doc_meta_obj = self.doc_meta_cache.get((db_id, doc_id))
+        if not doc_meta_obj or doc_meta_obj.get("_source") != "api_detail":
+            raw_detail = await self.api.fetch_document_detail(db_id, doc_id)
+            if raw_detail:
+
+                raw_list = raw_detail.get("doc_metadata", [])
+                clean_meta = ContentFormatter.clean_metadata(raw_list)
+                # 补充 root level 信息
+                if "doc_form" in raw_detail: clean_meta["doc_form"] = raw_detail["doc_form"]
+                doc_meta_obj = {
+                    "id": raw_detail.get("id"),
+                    "name": raw_detail.get("name"),
+                    "doc_metadata": clean_meta,
+                    "_source": "full_detail"
+                }
+                self.doc_meta_cache[(db_id, doc_id)] = doc_meta_obj
+
+        all_segments = await self.api.fetch_all_segments(db_id, doc_id)
+
+        # 安全检查
+        if not doc_meta_obj or not all_segments:
+            return {
+                "database_id": db_id,
+                "document_infos": [{
+                    "document_id": doc_id,
+                    "document_name": "Error: Not Found",
+                    "source_type": "error",
+                    "content_blocks": []
+                }]
+            }
+
+        # 2. 转换为内部 chunk 结构
+        temp_chunks = [
+            {"content": s.get("content"), "position": s.get("position"), "score": None,
+             "document_id": doc_id, "database_id": db_id, "document_name": doc_meta_obj.get("name")}
+            for s in all_segments
+        ]
+
+        # 3. 调用统一格式化器，并明确告知上下文是 'full_doc'
+        document_info = ContentFormatter.format_document(temp_chunks, doc_meta_obj, context='full_doc')
+        # 4. 返回标准结构
+        return {"database_id": db_id, "document_infos": [document_info] if document_info else []}
+
+    def format_output(self, chunks: List[Dict]) -> List[Dict]:
+        """Stage 5: 格式化为 Dify 要求的 JSON 结构"""
+        grouped = defaultdict(lambda: defaultdict(list))
+        for c in chunks:
+            grouped[c['database_id']][c['document_id']].append(c)
+
+        formatted_sources = []
+        for db_id, docs_map in grouped.items():
+            doc_infos = []
+            for doc_id, chunk_list in docs_map.items():
+                if not chunk_list: continue
+                # # 按原文位置排序，方便阅读
+                # chunk_list.sort(key=lambda x: x.get('score', 0), reverse=True)
+
+                # 从缓存读取元数据
+                meta = self.doc_meta_cache.get((db_id, doc_id), {})
+
+                formatted_doc = ContentFormatter.format_document(chunk_list, meta, context='rag')
+                if formatted_doc:
+                    doc_infos.append(formatted_doc)
+
+                # doc_meta_dict = meta.get("doc_metadata") or meta.get("metadata") or {}
+                # doc_infos.append({
+                #     "doc_metadata": doc_meta_dict,
+                #     "document_id": doc_id,
+                #     "document_name": chunk_list[0]['document_name'] or "Unknown",
+                #     "source_type": "excerpt",
+                #     "content_blocks": [
+                #         {
+                #             "content": c["content"],
+                #             "position": c["position"],
+                #             "score": c["score"]
+                #         } for c in chunk_list
+                #     ]
+                # })
+
+            if doc_infos:
+                formatted_sources.append({
+                    "database_id": db_id,
+                    "document_infos": doc_infos
+                })
+        return formatted_sources
+
+    async def process_slide(self, query_group: Dict, execution_plan: List[Dict], tasks: List[Dict]) -> Dict:
+        """处理单页 PPT 逻辑：Retrieve -> RRF -> Rerank -> Slice -> Format"""
+        # slide_id = slide_group.get("slide_id", "unknown")
+        queries = query_group.get("local_queries", [])
+
+        result_object = query_group.copy()
+        if not queries:
+            result_object["retrieve_data"] = []
+            return result_object
+
+        print(f"👉 Processing Slide:^_^ ({len(queries)} queries)")
+
+        # 1. 并发 Execute Retrieval Jobs
+        # 生成 (Query数量 x Plan Job数量) 个异步请求
+        fetch_tasks = []
+        for q in queries:
+            for job in execution_plan:
+                # 必须 copy job，因为 retrieve 内部会 pop 字段
+                fetch_tasks.append(self.api.retrieve(q, job.copy()))
+        # print(fetch_tasks)
+
+        # 等待所有 API 返回
+        # raw_results_list 的结构是: [ [ChunkA1, ChunkA2], [ChunkB1], [] ... ]
+        raw_results_list = await asyncio.gather(*fetch_tasks)
+        # print(raw_results_list)
+
+        # 2. RRF 融合 (修复点：直接传入 List[List])
+        # 过滤掉空结果，传入 RRF
+        valid_results = [res for res in raw_results_list if res]
+        fused_chunks = RagService.reciprocal_rank_fusion(valid_results)
+
+        # 3. 全局 Rerank 打分 (修复点：异步调用，全量不截断)
+        rerank_context = " ".join(queries)  # 简单拼接做 context
+        scored_chunks = await RagService.compute_rerank_scores(rerank_context, fused_chunks)
+
+        # 4. 库存分发 (Slicing)
+        final_chunks = self.distribute_chunks_to_tasks(scored_chunks, tasks)
+        # print(final_chunks)
+        # 存储cache文档信息
+        for res_list in raw_results_list:
+            if res_list:
+                self._inject_metadata_from_search_results(final_chunks)
+        print(self.doc_meta_cache)
+
+        # 5. 挂载数据到副本中
+        result_object["retrieve_data"] = self.format_output(final_chunks)
+        # 6. 格式化输出
+        return result_object
+
+
+# --- 模块四：多模态内容格式化器 ---
+class ContentFormatter:
+    """
+    负责将不同源类型的 chunk 内容格式化为标准输出结构。
+    这是一个可扩展的模块，未来可添加 Image, Audio 等格式化器。
+    """
+
+    @staticmethod
+    def clean_metadata(raw_data: Any) -> Dict[str, Any]:
+        """
+        【核心清洗器】
+        输入：可能是 Dify 详情接口返回的 List[Dict]，也可能是检索接口返回的 Dict。
+        输出：统一的扁平 Dict {key: value}。
+        """
+        if not raw_data:
+            return {}
+        # 场景 A: Retrieve 接口返回的已经是漂亮的 Dict
+        # 例如: {"source": "file_upload", "description": "xxx", "source_type": "document"}
+        if isinstance(raw_data, dict):
+            return raw_data
+        # 场景 B: Detail 接口返回的 Ugly List
+        # 例如: [{"name": "vehicle_model", "value": "理想L8"}, {"name": "doc_type", "value": "维修手册"}]
+        result = {}
+        if isinstance(raw_data, list):
+            for item in raw_data:
+                # 容错：必须是字典且包含 name 和 value
+                if isinstance(item, dict) and 'name' in item:
+                    # 优先取 value，如果没有 value 可能是空字段
+                    val = item.get('value')
+                    # 有些特殊字段 value 是 "NULL" 字符串，转为 None 或空
+                    if val == "NULL":
+                        val = None
+                    result[item['name']] = val
+            return result
+        return {}
+
+    @staticmethod
+    def _transform_metadata(meta_list_or_dict: Any) -> Dict[str, Any]:
+        """
+        【关键修复】
+        将 Dify 返回的元数据列表 `[{'name': k, 'value': v}, ...]`
+        转换为标准的字典 `{'k': 'v', ...}`。
+        同时兼容已经是字典的情况。
+        """
+        if isinstance(meta_list_or_dict, dict):
+            return meta_list_or_dict  # 如果已经是字典，直接返回
+        if not isinstance(meta_list_or_dict, list):
+            return {}  # 如果是其他未知类型，返回空字典
+        # 核心转换逻辑
+        transformed_meta = {}
+        for item in meta_list_or_dict:
+            if isinstance(item, dict) and 'name' in item and 'value' in item:
+                transformed_meta[item['name']] = item['value']
+        return transformed_meta
+
+    @staticmethod
+    def _parse_key_value_string(content: str) -> Dict[str, Any]:
+        """
+        解析 "key1":"value1";"key2":"value2" 格式的字符串。
+        """
+        data = {}
+        if not isinstance(content, str):
+            return data
+
+        pairs = content.strip().split(';')
+        for pair in pairs:
+            if ':' in pair:
+                key, val = pair.split(':', 1)
+                # 去除键和值的引号
+                key = key.strip().strip('"')
+                val = val.strip().strip('"')
+                data[key] = val
+        return data
+
+    @classmethod
+    def _format_video_document(cls, chunks: List[Dict], meta: Dict) -> Dict:
+        """
+        将视频类型的 Chunks 列表格式化为视频文档结构。
+        """
+        if not chunks:
+            return {}
+
+        chunks.sort(key=lambda x: x.get('position', 0))
+        content_blocks = []
+        video_info = {}
+
+        # 1. 解析所有 video chunks，构建 frame 列表
+        for chunk in chunks:
+            raw_data = cls._parse_key_value_string(chunk.get("content", ""))
+
+            # 提取全局视频信息 (只需一次)
+            if not video_info:
+                video_info = {
+                    "duration": float(raw_data.get("视频时长", 0.0)),
+                    "videoUrl": raw_data.get("视频链接", ""),
+                    "videoName": raw_data.get("视频名称", ""),
+                }
+
+            # 2. 构建单个 frame 对象
+            try:
+                frame = {
+                    "frameId": raw_data.get("视频片段ID"),
+                    "frameName": raw_data.get("视频片段名称"),
+                    "frameUrl": raw_data.get("视频片段分段URL"),
+                    "frameImageUrl": raw_data.get("视频片段帧图片URL"),
+                    "startTime": float(raw_data.get("开始时间", 0.0)),
+                    "endTime": float(raw_data.get("结束时间", 0.0)),
+                    "frameDuration": float(raw_data.get("视频片段时长", 0.0)),
+                    "description": raw_data.get("视频片段描述", ""),
+                    # 保留检索信息
+                    "position": chunk.get("position"),
+                    "score": chunk.get("score")
+                }
+                content_blocks.append(frame)
+            except (ValueError, TypeError) as e:
+                print(f"⚠️ [Video Frame Parse Error] Skipping frame. Chunk ID: {chunk.get('id')}, Error: {e}")
+                continue
+
+        # 3. 组装最终的视频文档对象
+        doc_meta_dict = meta.get("doc_metadata") or meta.get("metadata") or {}
+        raw_doc_name = chunks[0].get("document_name") or video_info.get("videoName") or "Unknown"
+        final_doc_name = raw_doc_name
+        # 获取目标后缀 (e.g., "mp4")
+        target_ext = doc_meta_dict.get("extension")
+        if target_ext and isinstance(raw_doc_name, str):
+            # 移除旧后缀并添加新后缀
+            if "." in raw_doc_name:
+                # 分割文件名，保留最后一个点之前的所有内容作为 basename
+                # e.g., "my.video.file.xlsx" -> "my.video.file"
+                basename = raw_doc_name.rsplit(".", 1)[0]
+                final_doc_name = f"{basename}.{target_ext}"
+            else:
+                # 如果原文件名没有后缀，直接追加
+                final_doc_name = f"{raw_doc_name}.{target_ext}"
+
+        return {
+            "doc_metadata": doc_meta_dict,
+            "document_id": chunks[0].get("document_id"),
+            "document_name": final_doc_name,
+            "source_type": "video",
+            "duration": video_info.get("duration"),
+            "videoUrl": video_info.get("videoUrl"),
+            "content_blocks": content_blocks
+        }
+
+    @staticmethod
+    def _format_text_document(chunks: List[Dict], meta: Dict, final_source_type: str) -> Dict:
+        """
+        格式化文本文档。
+        final_source_type 必须是 'excerpt' 或 'document'。
+        """
+        if final_source_type == 'excerpt':
+            chunks.sort(key=lambda x: x.get('score', 0), reverse=True)
+        else:  # 'document'
+            chunks.sort(key=lambda x: x.get('position', 0))
+        doc_meta_dict = meta.get("doc_metadata") or meta.get("metadata") or {}
+
+        return {
+            "doc_metadata": doc_meta_dict,
+            "document_id": chunks[0].get("document_id"),
+            "document_name": chunks[0].get("document_name") or "Unknown",
+            "source_type": final_source_type,
+            "content_blocks": [
+                {
+                    "content": c["content"],
+                    "position": c["position"],
+                    "score": c["score"]
+                } for c in chunks
+            ]
+        }
+
+    @classmethod
+    def format_document(cls, chunks: List[Dict], meta: Dict, context: str) -> Dict:
+        """
+        总分发器：根据元数据决定使用哪个格式化函数。
+        【关键修复点】增加对 source_type 为 None 的处理。
+        """
+        if not chunks:
+            return {}
+        # print(chunks)
+        # 优先从缓存的详细元数据中获取
+        doc_meta = meta.get("doc_metadata", {}) or meta.get("metadata", {})
+        # 如果缓存中没有，尝试从第一个 chunk 的元数据中降级获取 (虽然不推荐，但可作为备用)
+        # if not doc_meta and chunks[0].get("metadata"):
+        #    doc_meta = chunks[0].get("metadata")
+        # 2. 【核心修复】调用转换函数，确保得到的是一个字典
+        doc_meta_dict = cls._transform_metadata(doc_meta)
+        # 3. 从转换后的字典中安全地获取 source_type
+        #    这里的'doc_form'是根据日志猜测的，如果不行，可以尝试'doc_type'
+        inherent_type = doc_meta_dict.get("source_type") or doc_meta_dict.get("doc_type")
+        # --- DEBUGGING ---
+        # # 增加更详细的日志，方便定位问题
+        # if not source_type:
+        #     print(f"⚠️ [Formatter Warning] No 'source_type' found for doc_id: {chunks[0].get('document_id')}. "
+        #           f"Defaulting to 'text' format. Metadata received: {meta}")
+        # ---------------
+        # 排序：根据类型决定排序策略
+        # 视频按原文位置（position）排序更合理，因为时间戳解析在格式化内部
+
+        # if source_type == "video":
+        #     chunks.sort(key=lambda x: x.get('position', 0))
+        #     return cls._format_video_document(chunks, meta)
+        # else:
+        #     # 对于所有其他情况 (文本, None, 或未知的 source_type)，都按分数排序
+        #     chunks.sort(key=lambda x: x.get('score', 0), reverse=True)
+        #     return cls._format_text_document(chunks, meta)
+
+        # 2. 根据“固有类型”和“调用上下文”决定最终的平行类型并分发
+        if inherent_type == "video":
+            return cls._format_video_document(chunks, meta)
+        # elif inherent_type == "image":
+        #     return cls._format_image_document(chunks, meta) # 未来扩展
+        # elif inherent_type == "audio":
+        #     return cls._format_audio_document(chunks, meta) # 未来扩展
+        else:
+            # 默认为文本处理逻辑
+            if context == 'rag':
+                final_type = 'excerpt'
+            elif context == 'full_doc':
+                final_type = 'document'
+            else:
+                # 默认降级为 excerpt
+                final_type = 'excerpt'
+            return cls._format_text_document(chunks, meta, final_source_type=final_type)
+
+
+# --- 模块五：Tuoyu 专用处理器 ---
+class TuoyuContentParser:
+    @staticmethod
+    def parse_key_value_lines(content: str) -> Dict[str, str]:
+        data = {}
+        # 预处理：替换可能导致分割错误的字符
+        # content = content.replace("：", ":") 
+        # 不替换，分别处理更安全
+        
+        lines = content.split('\n')
+        for line in lines:
+            line = line.strip()
+            if not line: continue
+            
+            # Remove leading '- ' if present (List items)
+            clean_line = line
+            if clean_line.startswith('- '):
+                clean_line = clean_line[2:]
+            
+            # Remove '### ' (Headers)
+            if clean_line.startswith('###'):
+                continue
+
+            # Handle | separators (Survey header)
+            parts = [clean_line]
+            if '|' in clean_line:
+                parts = clean_line.split('|')
+            
+            for part in parts:
+                part = part.strip()
+                # 优先匹配中文冒号
+                if '：' in part:
+                    k, v = part.split('：', 1)
+                    data[k.strip()] = v.strip()
+                elif ':' in part:
+                    # 忽略 content: 开头的行（避免解析自身）
+                    if part.startswith("content:"): continue
+                    # 忽略时间格式 15:42:13
+                    # 通常 key 不包含空格，value 可能有
+                    # 简单启发式：如果 : 后面前面看起来像 key
+                    k, v = part.split(':', 1)
+                    data[k.strip()] = v.strip()
+        return data
+
+class TuoyuProcessor:
+    def __init__(self, api_client: DifyApiClient):
+        self.api = api_client
+
+    def parse_time_filter(self, time_filter: str) -> Tuple[Optional[datetime], Optional[datetime]]:
+        if not time_filter:
+            return None, None
+        
+        now = datetime.now()
+        
+        if '近三年' in time_filter:
+            # 近三年通常指当前年份往前推3年，或者365*3天
+            # 这里取当前年份-3的1月1日开始
+            start_date = now.replace(year=now.year - 3, month=1, day=1, hour=0, minute=0, second=0)
+            return start_date, now
+        
+        # Try range "YYYY-MM-DD - YYYY-MM-DD"
+        # 兼容各种分隔符
+        range_match = re.match(r'(\d{4}-\d{2}-\d{2})\s*[-~to至]\s*(\d{4}-\d{2}-\d{2})', time_filter)
+        if range_match:
+            try:
+                start = datetime.strptime(range_match.group(1), '%Y-%m-%d')
+                end = datetime.strptime(range_match.group(2), '%Y-%m-%d')
+                # End date implies end of that day?
+                end = end.replace(hour=23, minute=59, second=59)
+                return start, end
+            except:
+                pass
+        
+        # Try single date "YYYY-MM-DD" (Start Date)
+        single_date_match = re.match(r'^(\d{4}-\d{2}-\d{2})$', time_filter.strip())
+        if single_date_match:
+             try:
+                 start = datetime.strptime(single_date_match.group(1), '%Y-%m-%d')
+                 return start, now
+             except:
+                 pass
+                
+        # Try single year "2014"
+        year_match = re.match(r'^\d{4}$', time_filter.strip())
+        if year_match:
+             try:
+                 year = int(year_match.group(0))
+                 start = datetime(year, 1, 1)
+                 end = datetime(year, 12, 31, 23, 59, 59)
+                 return start, end
+             except:
+                 pass
+
+        return None, None
+
+
+    def extract_date_from_content(self, data: Dict[str, str]) -> Optional[datetime]:
+        # 1. 备案及完成时间: 2019-12-31 15:42:13
+        if '备案及完成时间' in data:
+            try:
+                # 可能包含时间，也可能只有日期
+                val = data['备案及完成时间']
+                if len(val) > 10:
+                    return datetime.strptime(val, '%Y-%m-%d %H:%M:%S')
+                else:
+                    return datetime.strptime(val, '%Y-%m-%d')
+            except:
+                pass
+        
+        # 2. 年份: 2014
+        if '年份' in data:
+            try:
+                return datetime(int(data['年份']), 1, 1)
+            except:
+                pass
+        
+        # 3. 尝试从 content 字段本身找（如果 parser 没提取出来）
+        # 暂时依赖 parser
+        return None
+
+    EDUCATION_MAP = {
+        "高职（专科）": "高等职业教育（专科）",
+        "高职专科": "高等职业教育（专科）",
+        "专科": "高等职业教育（专科）",
+        "高职": "高等职业教育（专科）",
+        "高等职业教育（专科）": "高等职业教育（专科）",
+        "大专": "高等职业教育（专科）",
+        "vocational_college": "高等职业教育（专科）",
+        
+        "本科": "普通本科",
+        "普通本科": "普通本科",
+        "本科及以上": "普通本科",
+        "undergraduate": "普通本科",
+        
+        "中职": "中等职业教育",
+        "中专": "中等职业教育",
+        "高中/中职": "中等职业教育",
+        "senior_high_school": "中等职业教育",
+        
+        "硕士": "硕士研究生",
+        "研究生": "硕士研究生",
+        "硕士研究生": "硕士研究生",
+        "master_degree": "硕士研究生",
+    }
+
+    def normalize_education(self, text: str) -> str:
+        if not text: return ""
+        text = text.strip()
+        # 1. 直接查表
+        if text in self.EDUCATION_MAP:
+            return self.EDUCATION_MAP[text]
+        # 2. 包含匹配 (简单的反向查找，优先匹配长词)
+        # Sort keys by length desc to match "高职（专科）" before "高职"
+        sorted_keys = sorted(self.EDUCATION_MAP.keys(), key=len, reverse=True)
+        for k in sorted_keys:
+            if k in text:
+                return self.EDUCATION_MAP[k]
+        return text
+
+    def check_rules(self, data: Dict[str, str], regional_rules: Dict, time_range: Tuple) -> bool:
+        # 1. Regional Rules Check
+        if regional_rules:
+            # --- 问卷星数据过滤逻辑 (Questionnaire) ---
+            # 识别特征：包含 "岗位" 或 "job_role"
+            is_questionnaire = '岗位' in data or 'job_role' in data
+            
+            if is_questionnaire:
+                # 过滤条件：major（专业）、scope（区域）、level（学历等级）
+                # 【重要】问卷数据不需要时间过滤
+                
+                # (1) Major Check
+                req_major = regional_rules.get('major')
+                if req_major:
+                    major = data.get('专业') or data.get('major')
+                    # 模糊匹配
+                    if not major or req_major not in major:
+                        return False
+                
+                # (2) Scope Check (City/Province)
+                req_scope = regional_rules.get('scope')
+                if req_scope:
+                    loc = data.get('城市') or data.get('省份') or data.get('city') or data.get('province') or ""
+                    if req_scope not in loc:
+                        return False
+                        
+                # (3) Level Check (Education)
+                req_level = regional_rules.get('level')
+                if req_level:
+                    edu = data.get('学历') or data.get('education')
+                    
+                    # 使用归一化逻辑
+                    norm_req = self.normalize_education(req_level)
+                    norm_edu = self.normalize_education(edu)
+                    
+                    # 宽松匹配：归一化后相等，或者互相包含
+                    match = False
+                    if not edu:
+                        match = False
+                    elif norm_req == norm_edu:
+                        match = True
+                    elif norm_req in norm_edu or norm_edu in norm_req:
+                        match = True
+                    
+                    if not match:
+                        return False
+                
+                # 问卷数据直接返回 True，跳过后续的时间检查
+                return True
+
+            else:
+                # --- 非问卷数据 (机构备案 & MOE) ---
+                
+                # (3) MOE Special Logic
+                # 识别特征：包含 "学校标识码" 或 "开设专业"
+                is_moe = '学校标识码' in data or ('开设专业' in data and '岗位' not in data)
+                
+                if is_moe:
+                    # MOE 数据额外检查 major 和 level
+                    req_major = regional_rules.get('major')
+                    if req_major:
+                        major = data.get('开设专业') or data.get('专业') or data.get('major')
+                        if not major or req_major not in major:
+                            return False
+                    
+                    # Level Check: 只有 regional_rules 里的 level 是 ‘高职’/'高等职业教育（专科）'/'专科' 时才使用 MOE 数据
+                    req_level = regional_rules.get('level')
+                    # 这里的 valid_moe_levels 也可以用 normalize 判断，但为了保险先保留 list
+                    valid_moe_levels = ['高职', '高等职业教育（专科）', '专科', '高职（专科）', '高职专科']
+                    
+                    # 检查 req_level 是否属于高职类
+                    is_vocational = False
+                    norm_req = self.normalize_education(req_level)
+                    if norm_req == "高等职业教育（专科）":
+                        is_vocational = True
+                    else:
+                        for v in valid_moe_levels:
+                            if v in req_level:
+                                is_vocational = True
+                                break
+                    
+                    if not is_vocational:
+                        return False
+                        
+                    # MOE 数据也需要检查 School
+                    req_school = regional_rules.get('school')
+                    if req_school:
+                        name = data.get('机构名称') or data.get('institution_name') or data.get('别名') or data.get('institution')
+                        if not name or req_school not in name: 
+                             return False
+
+                    # MOE 数据也需要检查 Scope
+                    req_scope = regional_rules.get('scope')
+                    if req_scope:
+                        loc = data.get('城市') or data.get('省份') or data.get('city') or data.get('province') or ""
+                        if req_scope not in loc:
+                            return False
+
+                else:
+                    # --- 托育机构备案数据 (Tuoyu_institution) ---
+                    # 过滤条件：scope（区域）和 time_filter（时间范围）
+                    # 【重要】School 不是通用的！机构备案数据不检查 School！
+                    
+                    # (2) Scope Check (通用)
+                    req_scope = regional_rules.get('scope')
+                    if req_scope:
+                        # 字段：城市, 省份, 区域编号(需要映射?), city, province
+                        # 机构备案数据通常有 "详细地址" 或 "区域编号"
+                        loc = data.get('城市') or data.get('省份') or data.get('city') or data.get('province') or data.get('详细地址') or ""
+                        # 区域编号处理比较复杂，暂时只匹配文本
+                        if req_scope not in loc:
+                            return False
+                
+        # 2. Time Filter Check
+        # 需求：对于托育机构备案数据使用scope（区域）和time_filter（时间范围）作为条件
+        # MOE 数据和问卷数据是否需要时间过滤？
+        # 用户明确指出：问卷数据不需要时间过滤。
+        # MOE 数据需要时间过滤吗？之前的需求里提到了 MOE 使用 time_filter。
+        # 机构备案数据明确需要时间过滤。
+        
+        # 因此，只有非问卷数据才进行时间检查
+        # is_questionnaire 已经在上面处理并返回了，能走到这里的都是非问卷数据
+        
+        if time_range and time_range[0]:
+            date_obj = self.extract_date_from_content(data)
+            if date_obj:
+                start, end = time_range
+                # 注意：end 可能是 None (如果输入只是开始时间)
+                # 但 parse_time_filter 对于单一日期返回的是 (start, now)
+                # 所以这里可以直接比较范围
+                if not (start <= date_obj <= end):
+                    return False
+            else:
+                # 如果有时间筛选要求，但数据里没有时间：
+                # 严格模式下过滤掉。
+                return False
+
+        return True
+
+    async def process(self, tasks: List[Dict], query_groups: List[Dict], regional_rules: Dict, time_filter: str) -> Dict[str, Any]:
+        print(f"🚀 [Tuoyu Mode] Rules: {regional_rules}, Time: {time_filter}")
+        
+        # 1. 构造查询 Query List
+        # 为了避免 Rules 中的特定字段（如 school）污染其他类型数据的召回（如机构备案数据），
+        # 我们构造两组 Rule String：
+        # A. Full Rules: 包含所有字段 (针对 MOE 等强匹配)
+        # B. General Rules: 排除 school 字段 (针对 机构备案/问卷 等通用匹配)
+        
+        rule_parts_full = []
+        rule_parts_general = []
+        
+        if regional_rules:
+            for k, v in regional_rules.items():
+                if not v: continue
+                v_str = str(v)
+                
+                # Full 包含所有
+                rule_parts_full.append(v_str)
+                
+                # General 排除 school
+                if k != 'school':
+                    rule_parts_general.append(v_str)
+                    
+        rule_str_full = " ".join(rule_parts_full)
+        rule_str_general = " ".join(rule_parts_general)
+        
+        queries_to_run = set()
+        
+        # 基础策略：如果没有 query_groups，直接使用 Rule Strings
+        if not query_groups:
+            if rule_str_full: queries_to_run.add(rule_str_full)
+            if rule_str_general: queries_to_run.add(rule_str_general)
+            if not queries_to_run: queries_to_run.add("全部")
+        else:
+            # 组合策略：Local Query + Rule String
+            for group in query_groups:
+                for q in group.get('local_queries', []):
+                    # 组合 Full
+                    if rule_str_full:
+                        queries_to_run.add(f"{q} {rule_str_full}".strip())
+                    # 组合 General (如果与 Full 不同)
+                    if rule_str_general and rule_str_general != rule_str_full:
+                        queries_to_run.add(f"{q} {rule_str_general}".strip())
+                    # 如果没有 Rules，就只用 q
+                    if not rule_str_full and not rule_str_general:
+                        queries_to_run.add(q)
+                        
+        queries_to_run = list(queries_to_run)
+        print(f"📋 Generated {len(queries_to_run)} queries: {queries_to_run}")
+        
+        time_range = self.parse_time_filter(time_filter)
+        
+        # Store results as (db_id, doc_info)
+        final_results_list = []
+        
+        for task in tasks:
+            db_id = task.get('database_id')
+            if not db_id: continue
+            
+            print(f"🔍 [Tuoyu] Searching DB: {db_id}")
+            
+            # Step 1: 并发召回所有 Query 的结果 (Retrieve Chunks)
+            # 这里的 payload 可以复用
+            payload = {
+                "database_id_for_url": db_id,
+                # "top_k": 100 
+            }
+            
+            # Create retrieve tasks
+            retrieve_coros = [self.api.retrieve(q, payload.copy()) for q in queries_to_run]
+            results_list = await asyncio.gather(*retrieve_coros)
+            
+            # Flatten chunks
+            all_chunks = []
+            seen_chunk_ids = set()
+            for res in results_list:
+                for chunk in res:
+                    # 简单去重，避免重复处理
+                    cid = chunk.get('id')
+                    if cid not in seen_chunk_ids:
+                        all_chunks.append(chunk)
+                        seen_chunk_ids.add(cid)
+            
+            print(f"   -> Retrieved {len(all_chunks)} unique chunks from raw search")
+            
+            # Step 2: 筛选相关文档 ID (去重 + 规则过滤)
+            relevant_doc_ids = set()
+            for chunk in all_chunks:
+                # 解析内容
+                content_data = TuoyuContentParser.parse_key_value_lines(chunk['content'])
+                # 规则检查
+                if self.check_rules(content_data, regional_rules, time_range):
+                    relevant_doc_ids.add(chunk['document_id'])
+            
+            print(f"   -> Found {len(relevant_doc_ids)} relevant unique documents")
+            
+            # Step 3: 获取完整文档并再次过滤 (Fetch Full Doc & Filter Segments)
+            async def process_doc(d_id):
+                # 获取详情
+                d_detail = await self.api.fetch_document_detail(db_id, d_id)
+                if not d_detail: return None
+                
+                # 获取分段
+                segs = await self.api.fetch_all_segments(db_id, d_id)
+                
+                # 过滤分段
+                valid_segs = []
+                for seg in segs:
+                    s_content = seg.get('content', '')
+                    s_data = TuoyuContentParser.parse_key_value_lines(s_content)
+                    if self.check_rules(s_data, regional_rules, time_range):
+                        valid_segs.append(seg)
+                
+                if not valid_segs: return None
+                
+                # 构造结果
+                pseudo_chunks = []
+                for s in valid_segs:
+                    pseudo_chunks.append({
+                        "content": s.get("content"),
+                        "position": s.get("position"),
+                        "score": 1.0, 
+                        "document_id": d_id,
+                        "database_id": db_id,
+                        "document_name": d_detail.get('name')
+                    })
+                
+                fmt_doc = ContentFormatter.format_document(pseudo_chunks, d_detail, context='full_doc')
+                
+                # 设置 Source Type
+                sample_content = valid_segs[0].get('content', '')
+                sample_data = TuoyuContentParser.parse_key_value_lines(sample_content)
+                
+                if '岗位' in sample_data or 'job_role' in sample_data:
+                    fmt_doc['source_type'] = 'Tuoyu_Questionnaire'
+                else:
+                    fmt_doc['source_type'] = 'Tuoyu_institution'
+                    
+                return fmt_doc
+
+            # Execute doc processing
+            doc_tasks = [process_doc(did) for did in relevant_doc_ids]
+            doc_results = await asyncio.gather(*doc_tasks, return_exceptions=True)
+            
+            for res in doc_results:
+                if isinstance(res, Exception):
+                    print(f"⚠️ [Doc Process Error] {repr(res)}")
+                    continue
+                if res:
+                    final_results_list.append((db_id, res))
+
+        return {"result": [{"retrieve_data": self._package_results(final_results_list)}]}
+
+
+    def _package_results(self, results_list: List[Tuple[str, Dict]]) -> List[Dict]:
+        grouped = defaultdict(list)
+        for db_id, doc in results_list:
+            grouped[db_id].append(doc)
+            
+        output = []
+        for db_id, docs in grouped.items():
+            output.append({
+                "database_id": db_id,
+                "document_infos": docs
+            })
+        return output
+
+# --- 主程序入口 ---
+async def async_main(tasks: List[Dict], query_groups: List[Dict] = None, 
+                     regional_rules: Any = None, time_filter: Any = None, run_mode: str = "X-Pilot") -> Dict[str, Any]:
+    if not tasks: return {"result": []}
+    
+    client = DifyApiClient()
+    
+    try:
+        # --- Tuoyu Mode Branch ---
+        if run_mode == "Tuoyu":
+            processor = TuoyuProcessor(client)
+            # Re-implement packaging logic inside process or here
+            # Let's verify process implementation
+            
+            # We need to pass DB ID out.
+            # Let's modify TuoyuProcessor.process slightly to return structured data directly
+            # Or handle it here.
+            
+            # Better to fix TuoyuProcessor.process to return the correct structure.
+            return await processor.process(tasks, query_groups, regional_rules, time_filter)
+
+        # --- Standard X-Pilot Mode ---
+        if not query_groups: query_groups = [{"slide_id": "default", "local_queries": []}]
+        
+        orchestrator = RetrievalOrchestrator(client)
+        # ... existing logic ...
+
+        # --- Stage 0: 任务归类 ---
+        rag_tasks = [t for t in tasks if t.get("retrieval_mode") != "full_document_retrieval"]
+        full_doc_tasks = [t for t in tasks if t.get("retrieval_mode") == "full_document_retrieval"]
+
+        # Step 1: 预热 (Metadata Prefetch)
+        await orchestrator.prefetch_metadata(tasks)
+
+        # # Step 2: 计划 (Plan Construction)
+        # plan = orchestrator.build_execution_plan(tasks)
+        # debug_print(plan, "Execution Plan")
+        #
+        # # Step 3: 执行 (Concurrent Slide Processing)
+        # slide_tasks = [
+        #     orchestrator.process_slide(group, plan, tasks)
+        #     for group in query_groups
+        # ]
+        # slide_results = await asyncio.gather(*slide_tasks)
+        #
+        # return {"result": slide_results}
+
+        # --- Stage 2: 并发计划 ---
+        # 我们需要同时做两件事：
+        # A. 跑所有的 Slide RAG
+        # B. 跑一次 Full Document 下载
+
+        # 2.1 准备 RAG 任务
+        plan = orchestrator.build_execution_plan(rag_tasks)
+
+        # 2.2 定义 A 组协程 (RAG)
+        rag_coros = [
+            orchestrator.process_slide(group, plan, rag_tasks)
+            for group in query_groups
+        ]
+
+        # 2.3 定义 B 组协程 (Full Doc)
+        full_doc_coros = [
+            orchestrator.process_full_document_task(t)
+            for t in full_doc_tasks
+        ]
+
+        print(f"🚀 [Execute] Running {len(rag_coros)} slides RAG & {len(full_doc_coros)} doc fetches...")
+
+        # --- Stage 3: 并发执行 A 和 B ---
+        # all_results 结构: [Slide1_Res, Slide2_Res, ..., Doc1_Res, Doc2_Res]
+        all_results = await asyncio.gather(*(rag_coros + full_doc_coros))
+
+        # --- Stage 4: 结果分离与注入 (The Injection) ---
+
+        # 切分结果列表
+        split_idx = len(rag_coros)
+        slide_results = list(all_results[:split_idx])  # 只有 Slide 结果
+        doc_resources = list(all_results[split_idx:])  # 只有 Full Doc 结果 (标准化的 Dict)
+        # 【核心逻辑】：将 doc_resources 注入到每一个 Slide 的 retrieve_data 中
+        # 这样保证了“一次获取，处处可用”，且维持了 retrieve_data 的结构统一性
+        if doc_resources:
+            for slide in slide_results:
+                # 建立当前 slide 已有的 DB 映射表，方便合并
+                existing_dbs = {item["database_id"]: item for item in slide["retrieve_data"]}
+
+                for res in doc_resources:
+                    db_id = res["database_id"]
+
+                    # 如果该 Database 已存在于 RAG 结果中，则将 Full Doc 的 document_infos 合并进去
+                    if db_id in existing_dbs:
+                        # res["document_infos"] 里的元素已经带有了 source_type="document"
+                        existing_dbs[db_id]["document_infos"].extend(res["document_infos"])
+                    else:
+                        # 如果是新的 Database，直接添加
+                        slide["retrieve_data"].append(res)
+        return {"result": slide_results}
+
+    finally:
+        await client.close()
+
+
+def main(tasks: List[Dict], query_groups: List[Dict] = None, 
+         regional_rules: Any = None, time_filter: Any = None, run_mode: str = "X-Pilot") -> Dict[str, Any]:
+    """Dify 节点的主入口点"""
+    try:
+        return debug_print(asyncio.run(async_main(tasks, query_groups, regional_rules, time_filter, run_mode)))
+    except Exception as e:
+        import traceback
+        return {
+            "result": [
+                {
+                    "error": f"Workflow Failed: {str(e)}",
+                    "traceback": traceback.format_exc()
+                }
+            ]
+        }
+
+# main([
+#     {
+#         "database_id": "5bf50c7a-3ba4-46c7-bbdc-71d68f641e0a",
+#         "document_id": "6cc5b1e2-3bf3-47a8-b370-0eb0c4516c08",
+#         "retrieval_mode": "segment_retrieval"
+#     },
+#     # {
+#     #     "database_id": "5bf50c7a-3ba4-46c7-bbdc-71d68f641e0a",
+#     #     "retrieval_mode": "full_database_retrieval"
+#     # }
+# ],
+#     [
+#         {
+#             "local_queries": [
+#                 "视频",
+#                 "电动汽车 视频",
+#                 "比亚迪汉EV视频"
+#             ],
+#             "slide_id": "chapter_1_slide_1"
+#         }
+#     ])
