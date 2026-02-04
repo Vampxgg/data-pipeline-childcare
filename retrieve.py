@@ -1677,7 +1677,23 @@ class TuoyuProcessor:
                 if res:
                     final_results_list.append((db_id, res))
 
-        return {"result": [{"retrieve_data": self._package_results(final_results_list)}]}
+        # 构造最终输出，保留 query_groups 中的 ID 等信息
+        packaged_data = self._package_results(final_results_list)
+        
+        final_output_list = []
+        if query_groups:
+            for group in query_groups:
+                # 复制原始组信息 (包含 id 等)
+                res_item = group.copy()
+                # 挂载检索结果
+                # 注意：Tuoyu 模式下，所有 group 共享同一份基于规则的全局检索结果
+                res_item["retrieve_data"] = packaged_data
+                final_output_list.append(res_item)
+        else:
+            # 如果没有 query_groups，返回默认结构
+            final_output_list.append({"retrieve_data": packaged_data})
+
+        return {"result": final_output_list}
 
 
     def _package_results(self, results_list: List[Tuple[str, Dict]]) -> List[Dict]:
