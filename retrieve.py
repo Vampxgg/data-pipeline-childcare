@@ -1,5 +1,6 @@
 # coding: utf-8
 import asyncio
+import json
 import httpx
 import os
 import pprint
@@ -815,49 +816,239 @@ class ContentFormatter:
             return cls._format_text_document(chunks, meta, final_source_type=final_type)
 
 
+def parse_survey_content(content: str) -> dict:
+    """
+    解析问卷/访谈类内容（支持 Markdown、列表、纯文本格式）
+    """
+    lines = content.strip().split('\n')
+    
+    # 1. 提取元数据 (Metadata) - 通常在最后一行，以分号分隔
+    metadata = {}
+    if lines and ';' in lines[-1] and ':' in lines[-1]:
+        meta_line = lines[-1].strip()
+        # 移除开头的分号（如果有）
+        if meta_line.startswith(';'):
+            meta_line = meta_line[1:]
+        
+        parts = meta_line.split(';')
+        for part in parts:
+            if ':' in part:
+                k, v = part.split(':', 1)
+                metadata[k.strip()] = v.strip()
+        
+        # 提取完 metadata 后，从 lines 中移除最后一行，避免干扰后续解析
+        lines = lines[:-1]
+
+    # 2. 提取基本信息 (Basic Info)
+    basic_info = {
+        "city": metadata.get("city"),
+        "job_role": metadata.get("job_role"),
+        "institution_type": metadata.get("institution_type"),
+        "institution_host": metadata.get("institution_host"),
+        "institution_name": metadata.get("institution_name"),
+        "is_inclusive": None, # 需从正文提取
+        "education": metadata.get("education"),
+        "major": metadata.get("major")
+    }
+
+    # 尝试从第一行/标题行提取缺失的基本信息 (如果 metadata 不全)
+    # 格式示例: 城市：北京-海淀区 | 岗位：保教主任 | 机构：幼儿园托班 | 性质：公办
+    if lines:
+        header_line = lines[0]
+        if '|' in header_line:
+            parts = header_line.split('|')
+            for part in parts:
+                if '：' in part or ':' in part:
+                    sep = '：' if '：' in part else ':'
+                    k, v = part.split(sep, 1)
+                    k = k.strip()
+                    v = v.strip()
+                    if k == '城市' and not basic_info['city']: basic_info['city'] = v
+                    if k == '岗位' and not basic_info['job_role']: basic_info['job_role'] = v
+                    if k == '机构' and not basic_info['institution_type']: basic_info['institution_type'] = v
+                    if k == '性质' and not basic_info['institution_host']: basic_info['institution_host'] = v
+    
+    # 3. 扫描正文提取补充信息 (Contents 解析用于辅助提取 Basic Info)
+    # 虽然最终输出可能不需要详细的 contents 结构，但我们需要遍历正文来获取
+    # 是否普惠、学历、专业 等可能遗漏在 Basic Info 中的字段
+    
+    for line in lines:
+        line = line.strip()
+        if not line: continue
+        
+        # 忽略第一行如果是 header
+        if '|' in line and '城市' in line and line == lines[0]:
+            continue
+
+        # 识别问答对
+        if ':' in line or '：' in line:
+            # 移除开头的 - 
+            clean_line = line.lstrip('-').strip()
+                
+            # 分割 Key-Value
+            sep = '：' if '：' in clean_line else ':'
+            parts = clean_line.split(sep, 1)
+            if len(parts) == 2:
+                q = parts[0].strip()
+                a = parts[1].strip()
+                
+                # 特殊处理：是否普惠
+                if q == '是否普惠' and basic_info['is_inclusive'] is None:
+                    if a == '是': basic_info['is_inclusive'] = True
+                    elif a == '否': basic_info['is_inclusive'] = False
+                
+                # 特殊处理：学历/专业 (如果 metadata 没提取到，这里补救)
+                if q == '学历' and not basic_info['education']: basic_info['education'] = a
+                if q == '专业' and not basic_info['major']: basic_info['major'] = a
+
+    return {
+        "basic_info": basic_info,
+        "raw_text": content
+    }
+
+def parse_institution_info(content: str) -> dict:
+    """
+    解析机构备案信息 (Key: Value 行格式)
+    """
+    lines = content.strip().split('\n')
+    data = {}
+    for line in lines:
+        line = line.strip()
+        if not line: continue
+        
+        sep = '：' if '：' in line else ':'
+        if sep in line:
+            k, v = line.split(sep, 1)
+            data[k.strip()] = v.strip()
+            
+    return {
+        "institution_info": {
+            "name": data.get("机构名称"),
+            "alias": data.get("别名"),
+            "credit_code": data.get("统一社会信用代码"),
+            "type": data.get("机构类型"),
+            "address": data.get("详细地址"),
+            "registration_date": data.get("备案及完成时间"),
+            "region_code": data.get("区域编号")
+        }
+    }
+
+def parse_school_major_info(content: str) -> dict:
+    """
+    解析高校专业信息 (Key: Value 行格式)
+    """
+    lines = content.strip().split('\n')
+    data = {}
+    for line in lines:
+        line = line.strip()
+        if not line: continue
+        
+        sep = '：' if '：' in line else ':'
+        if sep in line:
+            k, v = line.split(sep, 1)
+            data[k.strip()] = v.strip()
+            
+    # 解析专业代码: "临床医学 (630101)" -> name="临床医学", code="630101"
+    raw_major = data.get("开设专业", "")
+    major_name = raw_major
+    major_code = ""
+    if "(" in raw_major and ")" in raw_major:
+        match = re.match(r"(.*?)\s*\((.*?)\)", raw_major)
+        if match:
+            major_name = match.group(1).strip()
+            major_code = match.group(2).strip()
+
+    return {
+        "school_info": {
+            "name": data.get("机构名称"),
+            "province": data.get("省份"),
+            "school_code": data.get("学校标识码")
+        },
+        "major_info": {
+            "name": major_name,
+            "major_code": major_code,
+            "duration_years": int(data.get("修业年限")) if data.get("修业年限") and data.get("修业年限").isdigit() else None,
+            "year": int(data.get("年份")) if data.get("年份") and data.get("年份").isdigit() else None,
+            "note": data.get("备注", "")
+        }
+    }
+
+def auto_parse(content: str) -> dict:
+    """
+    自动识别内容类型并分发解析
+    """
+    if "学校标识码" in content and "开设专业" in content:
+        return parse_school_major_info(content)
+    elif "统一社会信用代码" in content and "备案及完成时间" in content:
+        return parse_institution_info(content)
+    else:
+        # 默认为问卷/访谈
+        return parse_survey_content(content)
+
 # --- 模块五：Tuoyu 专用处理器 ---
 class TuoyuContentParser:
     @staticmethod
-    def parse_key_value_lines(content: str) -> Dict[str, str]:
-        data = {}
-        # 预处理：替换可能导致分割错误的字符
-        # content = content.replace("：", ":") 
-        # 不替换，分别处理更安全
-        
-        lines = content.split('\n')
-        for line in lines:
-            line = line.strip()
-            if not line: continue
+    def parse_key_value_lines(content: str) -> Dict[str, Any]:
+        """
+        使用内部定义的 auto_parse 进行统一解析
+        返回结构化字典
+        """
+        try:
+            parsed_data = auto_parse(content)
             
-            # Remove leading '- ' if present (List items)
-            clean_line = line
-            if clean_line.startswith('- '):
-                clean_line = clean_line[2:]
+            # 为了兼容旧逻辑 (check_rules 依赖扁平字典)，我们需要把 parsed_data 扁平化
+            # 但同时保留结构化数据供后续使用
             
-            # Remove '### ' (Headers)
-            if clean_line.startswith('###'):
-                continue
-
-            # Handle | separators (Survey header)
-            parts = [clean_line]
-            if '|' in clean_line:
-                parts = clean_line.split('|')
+            flat_data = {}
             
-            for part in parts:
-                part = part.strip()
-                # 优先匹配中文冒号
-                if '：' in part:
-                    k, v = part.split('：', 1)
-                    data[k.strip()] = v.strip()
-                elif ':' in part:
-                    # 忽略 content: 开头的行（避免解析自身）
-                    if part.startswith("content:"): continue
-                    # 忽略时间格式 15:42:13
-                    # 通常 key 不包含空格，value 可能有
-                    # 简单启发式：如果 : 后面前面看起来像 key
-                    k, v = part.split(':', 1)
-                    data[k.strip()] = v.strip()
-        return data
+            # 1. 处理问卷数据 (Survey)
+            if 'basic_info' in parsed_data:
+                # 提取 basic_info 到顶层
+                for k, v in parsed_data['basic_info'].items():
+                    if v is not None:
+                        flat_data[k] = str(v)
+                        # 兼容旧键名
+                        if k == 'job_role': flat_data['岗位'] = str(v)
+                        if k == 'city': flat_data['城市'] = str(v)
+                        if k == 'education': flat_data['学历'] = str(v)
+                        if k == 'major': flat_data['专业'] = str(v)
+                
+                # 提取 contents 里的问答对到顶层 (可选，用于更细粒度的规则检查?)
+                # 目前 check_rules 主要检查 basic_info，所以这里可以简化
+            
+            # 2. 处理机构数据 (Institution)
+            elif 'institution_info' in parsed_data:
+                info = parsed_data['institution_info']
+                for k, v in info.items():
+                    if v:
+                        flat_data[k] = str(v)
+                        # 兼容旧键名
+                        if k == 'name': flat_data['机构名称'] = str(v)
+                        if k == 'type': flat_data['机构类型'] = str(v)
+                        if k == 'address': flat_data['详细地址'] = str(v)
+                        if k == 'registration_date': flat_data['备案及完成时间'] = str(v)
+            
+            # 3. 处理高校数据 (School Major)
+            elif 'school_info' in parsed_data:
+                s_info = parsed_data['school_info']
+                m_info = parsed_data['major_info']
+                
+                for k, v in s_info.items():
+                    if v: flat_data[k] = str(v)
+                for k, v in m_info.items():
+                    if v: flat_data[k] = str(v)
+                    
+                # 兼容旧键名
+                if s_info.get('school_code'): flat_data['学校标识码'] = str(s_info['school_code'])
+                if m_info.get('name'): flat_data['开设专业'] = str(m_info['name'])
+            
+            # 将原始结构化数据挂载到特殊字段，方便后续提取
+            flat_data['_structured_data'] = parsed_data
+            
+            return flat_data
+        except Exception as e:
+            print(f"⚠️ [Parse Error] {e}")
+            return {}
 
 class TuoyuProcessor:
     def __init__(self, api_client: DifyApiClient):
@@ -1232,15 +1423,51 @@ class TuoyuProcessor:
                 # 构造结果
                 pseudo_chunks = []
                 for s in valid_segs:
+                    # 解析内容以获取结构化数据
+                    s_content = s.get("content", "")
+                    s_parsed = TuoyuContentParser.parse_key_value_lines(s_content)
+                    structured_data = s_parsed.get('_structured_data', {})
+                    
                     pseudo_chunks.append({
-                        "content": s.get("content"),
+                        "content": s_content,
                         "position": s.get("position"),
                         "score": 1.0, 
                         "document_id": d_id,
                         "database_id": db_id,
-                        "document_name": d_detail.get('name')
+                        "document_name": d_detail.get('name'),
+                        # 将结构化数据注入到 chunk 的 metadata 中
+                        "doc_metadata": structured_data 
                     })
                 
+                # 注意：这里传递给 format_document 的 meta 是 d_detail (Dify API 返回的文档详情)
+                # 但我们需要把 structured_data 传递出去。
+                # ContentFormatter.format_document 会优先使用 meta 参数里的 doc_metadata
+                
+                # 策略：修改 d_detail 的 doc_metadata，用我们的结构化数据覆盖/合并它
+                if pseudo_chunks:
+                     # 取第一个 chunk 的结构化数据作为整个文档的 metadata (通常一个文档的内容结构是一致的)
+                    doc_struct = pseudo_chunks[0]["doc_metadata"]
+                    
+                    # 这是一个 Hack: 我们把结构化数据塞进 doc_metadata
+                    # 这样 ContentFormatter 在处理时，如果能识别，就可以直接输出
+                    if "doc_metadata" not in d_detail:
+                        d_detail["doc_metadata"] = {}
+                    
+                    # 这里的 doc_metadata 可能是 list (Dify 风格) 也可能是 dict
+                    # 为了安全，我们把结构化数据放在一个特殊字段里，或者直接替换
+                    # 用户希望 "最终输出的时候将原本的metadata字段使用这种json结构替换"
+                    
+                    # 让我们修改 ContentFormatter.clean_metadata 或 format_document 逻辑？
+                    # 不，直接在这里替换最简单。
+                    # 但是 d_detail["doc_metadata"] 原本可能包含 filename 等信息，最好保留
+                    
+                    # 方案：将 structured_data 作为一个字段 'structured_content' 加入
+                    # 或者，如果用户希望完全替换 doc_metadata 为这个结构化 JSON...
+                    
+                    # 根据用户需求 2: "我希望最终输出的时候将原本的metadata字段使用这种json结构替换"
+                    # 这意味着最终 JSON 里的 doc_metadata 应该就是 structured_data
+                    d_detail["doc_metadata"] = doc_struct
+
                 fmt_doc = ContentFormatter.format_document(pseudo_chunks, d_detail, context='full_doc')
                 
                 # 设置 Source Type
