@@ -986,7 +986,229 @@ def auto_parse(content: str) -> dict:
         return parse_survey_content(content)
 
 # --- 模块五：Tuoyu 专用处理器 ---
+
+# --- 统一元数据管理模块 ---
+class UnifiedMetaManager:
+    """
+    统一管理区域、学历、专业映射，并提供智能匹配逻辑。
+    """
+    
+    # 预留专业映射 (目前为空，精确匹配)
+    MAJOR_MAP = {}
+
+    # 学历映射 (迁移自 TuoyuProcessor)
+    EDUCATION_MAP = {
+        "高职（专科）": "高等职业教育（专科）",
+        "高职专科": "高等职业教育（专科）",
+        "专科": "高等职业教育（专科）",
+        "高职": "高等职业教育（专科）",
+        "高等职业教育（专科）": "高等职业教育（专科）",
+        "大专": "高等职业教育（专科）",
+        "vocational_college": "高等职业教育（专科）",
+        
+        "本科": "普通本科",
+        "普通本科": "普通本科",
+        "本科及以上": "普通本科",
+        "undergraduate": "普通本科",
+        
+        "中职": "中等职业教育",
+        "中专": "中等职业教育",
+        "高中/中职": "中等职业教育",
+        "senior_high_school": "中等职业教育",
+        
+        "硕士": "硕士研究生",
+        "研究生": "硕士研究生",
+        "硕士研究生": "硕士研究生",
+        "master_degree": "硕士研究生",
+    }
+
+    # 中国行政区划映射 (省份 -> 城市列表)
+    # 包含所有地级市、自治州、盟、地区
+    CHINA_REGIONS = {
+        "北京": ["北京", "东城", "西城", "朝阳", "丰台", "石景山", "海淀", "门头沟", "房山", "通州", "顺义", "昌平", "大兴", "怀柔", "平谷", "密云", "延庆"],
+        "天津": ["天津", "和平", "河东", "河西", "南开", "河北", "红桥", "东丽", "西青", "津南", "北辰", "武清", "宝坻", "滨海新区", "宁河", "静海", "蓟州"],
+        "河北": ["石家庄", "唐山", "秦皇岛", "邯郸", "邢台", "保定", "张家口", "承德", "沧州", "廊坊", "衡水"],
+        "山西": ["太原", "大同", "阳泉", "长治", "晋城", "朔州", "晋中", "运城", "忻州", "临汾", "吕梁"],
+        "内蒙古": ["呼和浩特", "包头", "乌海", "赤峰", "通辽", "鄂尔多斯", "呼伦贝尔", "巴彦淖尔", "乌兰察布", "兴安", "锡林郭勒", "阿拉善"],
+        "辽宁": ["沈阳", "大连", "鞍山", "抚顺", "本溪", "丹东", "锦州", "营口", "阜新", "辽阳", "盘锦", "铁岭", "朝阳", "葫芦岛"],
+        "吉林": ["长春", "吉林", "四平", "辽源", "通化", "白山", "松原", "白城", "延边"],
+        "黑龙江": ["哈尔滨", "齐齐哈尔", "鸡西", "鹤岗", "双鸭山", "大庆", "伊春", "佳木斯", "七台河", "牡丹江", "黑河", "绥化", "大兴安岭"],
+        "上海": ["上海", "黄浦", "徐汇", "长宁", "静安", "普陀", "虹口", "杨浦", "闵行", "宝山", "嘉定", "浦东", "金山", "松江", "青浦", "奉贤", "崇明"],
+        "江苏": ["南京", "无锡", "徐州", "常州", "苏州", "南通", "连云港", "淮安", "盐城", "扬州", "镇江", "泰州", "宿迁"],
+        "浙江": ["杭州", "宁波", "温州", "嘉兴", "湖州", "绍兴", "金华", "衢州", "舟山", "台州", "丽水"],
+        "安徽": ["合肥", "芜湖", "蚌埠", "淮南", "马鞍山", "淮北", "铜陵", "安庆", "黄山", "滁州", "阜阳", "宿州", "六安", "亳州", "池州", "宣城"],
+        "福建": ["福州", "厦门", "莆田", "三明", "泉州", "漳州", "南平", "龙岩", "宁德"],
+        "江西": ["南昌", "景德镇", "萍乡", "九江", "新余", "鹰潭", "赣州", "吉安", "宜春", "抚州", "上饶"],
+        "山东": ["济南", "青岛", "淄博", "枣庄", "东营", "烟台", "潍坊", "济宁", "泰安", "威海", "日照", "临沂", "德州", "聊城", "滨州", "菏泽"],
+        "河南": ["郑州", "开封", "洛阳", "平顶山", "安阳", "鹤壁", "新乡", "焦作", "濮阳", "许昌", "漯河", "三门峡", "南阳", "商丘", "信阳", "周口", "驻马店", "济源"],
+        "湖北": ["武汉", "黄石", "十堰", "宜昌", "襄阳", "鄂州", "荆门", "孝感", "荆州", "黄冈", "咸宁", "随州", "恩施", "仙桃", "潜江", "天门", "神农架"],
+        "湖南": ["长沙", "株洲", "湘潭", "衡阳", "邵阳", "岳阳", "常德", "张家界", "益阳", "郴州", "永州", "怀化", "娄底", "湘西"],
+        "广东": ["广州", "深圳", "珠海", "汕头", "佛山", "韶关", "湛江", "肇庆", "江门", "茂名", "惠州", "梅州", "汕尾", "河源", "阳江", "清远", "东莞", "中山", "潮州", "揭阳", "云浮"],
+        "广西": ["南宁", "柳州", "桂林", "梧州", "北海", "防城港", "钦州", "贵港", "玉林", "百色", "贺州", "河池", "来宾", "崇左"],
+        "海南": ["海口", "三亚", "三沙", "儋州", "五指山", "琼海", "文昌", "万宁", "东方", "定安", "屯昌", "澄迈", "临高", "白沙", "昌江", "乐东", "陵水", "保亭", "琼中"],
+        "重庆": ["重庆", "万州", "涪陵", "渝中", "大渡口", "江北", "沙坪坝", "九龙坡", "南岸", "北碚", "綦江", "大足", "渝北", "巴南", "黔江", "长寿", "江津", "合川", "永川", "南川", "璧山", "铜梁", "潼南", "荣昌", "开州", "梁平", "武隆", "城口", "丰都", "垫江", "忠县", "云阳", "奉节", "巫山", "巫溪", "石柱", "秀山", "酉阳", "彭水"],
+        "四川": ["成都", "自贡", "攀枝花", "泸州", "德阳", "绵阳", "广元", "遂宁", "内江", "乐山", "南充", "眉山", "宜宾", "广安", "达州", "雅安", "巴中", "资阳", "阿坝", "甘孜", "凉山"],
+        "贵州": ["贵阳", "六盘水", "遵义", "安顺", "毕节", "铜仁", "黔西南", "黔东南", "黔南"],
+        "云南": ["昆明", "曲靖", "玉溪", "保山", "昭通", "丽江", "普洱", "临沧", "楚雄", "红河", "文山", "西双版纳", "大理", "德宏", "怒江", "迪庆"],
+        "西藏": ["拉萨", "日喀则", "昌都", "林芝", "山南", "那曲", "阿里"],
+        "陕西": ["西安", "铜川", "宝鸡", "咸阳", "渭南", "延安", "汉中", "榆林", "安康", "商洛"],
+        "甘肃": ["兰州", "嘉峪关", "金昌", "白银", "天水", "武威", "张掖", "平凉", "酒泉", "庆阳", "定西", "陇南", "临夏", "甘南"],
+        "青海": ["西宁", "海东", "海北", "黄南", "海南", "果洛", "玉树", "海西"],
+        "宁夏": ["银川", "石嘴山", "吴忠", "固原", "中卫"],
+        "新疆": ["乌鲁木齐", "克拉玛依", "吐鲁番", "哈密", "昌吉", "博尔塔拉", "巴音郭楞", "阿克苏", "克孜勒苏", "喀什", "和田", "伊犁", "塔城", "阿勒泰", "石河子", "阿拉尔", "图木舒克", "五家渠", "北屯", "铁门关", "双河", "可克达拉", "昆玉", "胡杨河", "新星", "白杨"],
+        "台湾": ["台湾", "台北", "高雄", "基隆", "台中", "台南", "新竹", "嘉义"],
+        "香港": ["香港"],
+        "澳门": ["澳门"]
+    }
+
+    def __init__(self):
+        # 构建反向索引: City -> Province
+        self.city_to_province = {}
+        # 为了处理"吉林"既是省又是市的情况，我们优先记录省份
+        # 但反向索引主要是为了通过城市找省份
+        for prov, cities in self.CHINA_REGIONS.items():
+            for city in cities:
+                # 注意：如果城市名和省名相同（如吉林市），这里会被记录为 吉林->吉林省
+                self.city_to_province[city] = prov
+                
+    def normalize_name(self, name: str) -> str:
+        """移除常见的行政区划后缀"""
+        if not name: return ""
+        # 移除常见后缀 (注意顺序，先长后短)
+        suffixes = ["自治区", "自治州", "特别行政区", "地区", "盟", "省", "市", "区", "县"]
+        
+        # 特殊处理：如果名字本身只有两个字且包含后缀，可能需要保留？
+        # 一般来说 "四川省" -> "四川", "成都市" -> "成都"
+        # "内蒙古自治区" -> "内蒙古"
+        
+        clean_name = name.strip()
+        for suffix in suffixes:
+            if clean_name.endswith(suffix):
+                # 只有当移除后缀后长度仍 >= 2 (除特殊情况) 才移除
+                # 比如 "沙市" -> "沙" (不妥)，但地级市一般至少2个字
+                # 这里假设输入都是地级市或省份
+                if len(clean_name) > len(suffix):
+                    clean_name = clean_name[:-len(suffix)]
+                    break # 只移除最外层的一个后缀
+        return clean_name
+
+    def parse_location(self, text: str) -> Tuple[Optional[str], Optional[str]]:
+        """
+        从文本中解析出 (省份, 城市)
+        Input: "四川", "四川省", "四川-成都", "成都市", "四川省成都市"
+        Output: (Province, City) 归一化后的名称
+        """
+        if not text: return None, None
+        
+        # 1. 预处理
+        text = text.replace(" ", "").replace("-", "").replace("_", "")
+        
+        # 2. 尝试匹配省份
+        matched_province = None
+        matched_city = None
+        
+        # 遍历所有省份
+        for prov in self.CHINA_REGIONS.keys():
+            if prov in text:
+                matched_province = prov
+                break
+        
+        # 3. 尝试匹配城市
+        # 策略：如果已经匹配到省份，优先在该省份下找城市
+        # 如果没匹配到省份，全量找城市 (并反推省份)
+        
+        if matched_province:
+            cities = self.CHINA_REGIONS[matched_province]
+            # 按长度降序匹配，防止子串误判
+            for city in sorted(cities, key=len, reverse=True):
+                if city in text:
+                    matched_city = city
+                    break
+            
+            # 特殊情况处理：吉林（省）和 吉林（市）
+            # 如果 text="吉林"，matched_province="吉林"
+            # 此时 matched_city 也会匹配到 "吉林" (因为吉林市在吉林省列表里)
+            # 如果输入仅仅是 "吉林" 或 "吉林省"，应该视为省份查询
+            # 如果输入是 "吉林市"，视为城市查询
+            if matched_province == matched_city:
+                if "市" in text:
+                    pass # 确认为城市
+                else:
+                    matched_city = None # 视为省份
+                    
+        else:
+            # 全局搜索城市
+            # 这比较慢，但为了准确性
+            for city, prov in self.city_to_province.items():
+                if city in text:
+                    # 再次确认：如果是短名，是否真的匹配？
+                    # 比如 text="南宁市", city="南宁" -> OK
+                    # 比如 text="河南", city="南" (假设有这个城市) -> No
+                    # 我们的 city list 都是地级市，一般不会太短
+                    matched_city = city
+                    matched_province = prov
+                    break
+        
+        return matched_province, matched_city
+
+    def check_region_match(self, rule_scope: str, doc_scope: str) -> bool:
+        """
+        核心区域匹配逻辑
+        rule_scope: 用户输入的查询/规则 (e.g. "四川")
+        doc_scope: 文档中的区域信息 (e.g. "成都")
+        
+        逻辑：
+        1. 规则是指向城市 -> 必须精确匹配城市 (e.g. Rule="成都" -> Doc="成都" OK; Doc="四川" Fail; Doc="南充" Fail)
+        2. 规则是指向省份 -> 匹配该省份下的所有城市 (e.g. Rule="四川" -> Doc="成都" OK; Doc="四川" OK)
+        """
+        if not rule_scope: return True # 无规则限制
+        if not doc_scope: return False # 有规则但文档无区域信息
+        
+        r_prov, r_city = self.parse_location(rule_scope)
+        d_prov, d_city = self.parse_location(doc_scope)
+        
+        # Debug
+        # print(f"Match: Rule({r_prov}, {r_city}) vs Doc({d_prov}, {d_city})")
+        
+        # Case 1: 规则指定了具体城市
+        if r_city:
+            # 文档必须也是该城市
+            if d_city == r_city:
+                return True
+            # 或者文档只写了省份，但省份不匹配？不行，必须精确到城市
+            # 如果文档只写了 "四川"，规则是 "成都"，我们无法确定文档是否包含成都信息
+            # 严格模式：False
+            return False
+            
+        # Case 2: 规则只指定了省份
+        if r_prov:
+            # 文档只要属于该省份即可 (省份相同 OR 城市属于该省)
+            if d_prov == r_prov:
+                return True
+            # 如果 d_prov 解析失败，但 d_city 解析成功，且 d_city 属于 r_prov
+            if d_city and self.city_to_province.get(d_city) == r_prov:
+                return True
+            return False
+            
+        # Case 3: 规则解析不出省市 (可能是其他区域描述，如 "华东")
+        # 降级为简单的字符串包含
+        return rule_scope in doc_scope
+
+    def normalize_education(self, text: str) -> str:
+        if not text: return ""
+        text = text.strip()
+        # 1. 直接查表
+        if text in self.EDUCATION_MAP:
+            return self.EDUCATION_MAP[text]
+        # 2. 包含匹配 (简单的反向查找，优先匹配长词)
+        sorted_keys = sorted(self.EDUCATION_MAP.keys(), key=len, reverse=True)
+        for k in sorted_keys:
+            if k in text:
+                return self.EDUCATION_MAP[k]
+        return text
+
 class TuoyuContentParser:
+
     @staticmethod
     def parse_key_value_lines(content: str) -> Dict[str, Any]:
         """
@@ -1053,8 +1275,10 @@ class TuoyuContentParser:
 class TuoyuProcessor:
     def __init__(self, api_client: DifyApiClient):
         self.api = api_client
+        self.meta_manager = UnifiedMetaManager()
 
     def parse_time_filter(self, time_filter: str) -> Tuple[Optional[datetime], Optional[datetime]]:
+
         if not time_filter:
             return None, None
         
@@ -1126,46 +1350,11 @@ class TuoyuProcessor:
         # 暂时依赖 parser
         return None
 
-    EDUCATION_MAP = {
-        "高职（专科）": "高等职业教育（专科）",
-        "高职专科": "高等职业教育（专科）",
-        "专科": "高等职业教育（专科）",
-        "高职": "高等职业教育（专科）",
-        "高等职业教育（专科）": "高等职业教育（专科）",
-        "大专": "高等职业教育（专科）",
-        "vocational_college": "高等职业教育（专科）",
-        
-        "本科": "普通本科",
-        "普通本科": "普通本科",
-        "本科及以上": "普通本科",
-        "undergraduate": "普通本科",
-        
-        "中职": "中等职业教育",
-        "中专": "中等职业教育",
-        "高中/中职": "中等职业教育",
-        "senior_high_school": "中等职业教育",
-        
-        "硕士": "硕士研究生",
-        "研究生": "硕士研究生",
-        "硕士研究生": "硕士研究生",
-        "master_degree": "硕士研究生",
-    }
-
     def normalize_education(self, text: str) -> str:
-        if not text: return ""
-        text = text.strip()
-        # 1. 直接查表
-        if text in self.EDUCATION_MAP:
-            return self.EDUCATION_MAP[text]
-        # 2. 包含匹配 (简单的反向查找，优先匹配长词)
-        # Sort keys by length desc to match "高职（专科）" before "高职"
-        sorted_keys = sorted(self.EDUCATION_MAP.keys(), key=len, reverse=True)
-        for k in sorted_keys:
-            if k in text:
-                return self.EDUCATION_MAP[k]
-        return text
+        return self.meta_manager.normalize_education(text)
 
     def check_rules(self, data: Dict[str, str], regional_rules: Dict, time_range: Tuple) -> bool:
+
         # 1. Regional Rules Check
         if regional_rules:
             # --- 问卷星数据过滤逻辑 (Questionnaire) ---
@@ -1188,8 +1377,10 @@ class TuoyuProcessor:
                 req_scope = regional_rules.get('scope')
                 if req_scope:
                     loc = data.get('城市') or data.get('省份') or data.get('city') or data.get('province') or ""
-                    if req_scope not in loc:
+                    # 使用 UnifiedMetaManager 进行智能匹配
+                    if not self.meta_manager.check_region_match(req_scope, loc):
                         return False
+
                         
                 # (3) Level Check (Education)
                 req_level = regional_rules.get('level')
@@ -1260,8 +1451,10 @@ class TuoyuProcessor:
                     req_scope = regional_rules.get('scope')
                     if req_scope:
                         loc = data.get('城市') or data.get('省份') or data.get('city') or data.get('province') or ""
-                        if req_scope not in loc:
+                        # 使用 UnifiedMetaManager 进行智能匹配
+                        if not self.meta_manager.check_region_match(req_scope, loc):
                             return False
+
 
                 else:
                     # --- 托育机构备案数据 (Tuoyu_institution) ---
@@ -1274,9 +1467,10 @@ class TuoyuProcessor:
                         # 字段：城市, 省份, 区域编号(需要映射?), city, province
                         # 机构备案数据通常有 "详细地址" 或 "区域编号"
                         loc = data.get('城市') or data.get('省份') or data.get('city') or data.get('province') or data.get('详细地址') or ""
-                        # 区域编号处理比较复杂，暂时只匹配文本
-                        if req_scope not in loc:
+                        # 使用 UnifiedMetaManager 进行智能匹配
+                        if not self.meta_manager.check_region_match(req_scope, loc):
                             return False
+
                 
         # 2. Time Filter Check
         # 需求：对于托育机构备案数据使用scope（区域）和time_filter（时间范围）作为条件
@@ -1307,9 +1501,19 @@ class TuoyuProcessor:
     async def process(self, tasks: List[Dict], query_groups: List[Dict], regional_rules: Dict, time_filter: str) -> Dict[str, Any]:
         print(f"🚀 [Tuoyu Mode] Rules: {regional_rules}, Time: {time_filter}")
         
+        # 0. 健壮性处理：确保 regional_rules 是字典
+        if regional_rules and isinstance(regional_rules, str):
+            try:
+                # 尝试解析 JSON 字符串
+                regional_rules = json.loads(regional_rules)
+            except json.JSONDecodeError:
+                print(f"⚠️ [Warning] regional_rules is a string but not valid JSON: {regional_rules}")
+                regional_rules = {}  # 降级为空字典
+        
         # 1. 构造查询 Query List
         # 为了避免 Rules 中的特定字段（如 school）污染其他类型数据的召回（如机构备案数据），
         # 我们构造两组 Rule String：
+
         # A. Full Rules: 包含所有字段 (针对 MOE 等强匹配)
         # B. General Rules: 排除 school 字段 (针对 机构备案/问卷 等通用匹配)
         
@@ -1421,63 +1625,44 @@ class TuoyuProcessor:
                 if not valid_segs: return None
                 
                 # 构造结果
-                pseudo_chunks = []
+                content_blocks = []
+                # 保持原有的排序逻辑
+                valid_segs.sort(key=lambda x: x.get('position', 0))
+
                 for s in valid_segs:
                     # 解析内容以获取结构化数据
                     s_content = s.get("content", "")
                     s_parsed = TuoyuContentParser.parse_key_value_lines(s_content)
                     structured_data = s_parsed.get('_structured_data', {})
                     
-                    pseudo_chunks.append({
+                    content_blocks.append({
                         "content": s_content,
                         "position": s.get("position"),
                         "score": 1.0, 
-                        "document_id": d_id,
-                        "database_id": db_id,
-                        "document_name": d_detail.get('name'),
-                        # 将结构化数据注入到 chunk 的 metadata 中
+                        # 关键修改：将结构化数据直接放在每个 block 的 doc_metadata 字段中
                         "doc_metadata": structured_data 
                     })
                 
-                # 注意：这里传递给 format_document 的 meta 是 d_detail (Dify API 返回的文档详情)
-                # 但我们需要把 structured_data 传递出去。
-                # ContentFormatter.format_document 会优先使用 meta 参数里的 doc_metadata
-                
-                # 策略：修改 d_detail 的 doc_metadata，用我们的结构化数据覆盖/合并它
-                if pseudo_chunks:
-                     # 取第一个 chunk 的结构化数据作为整个文档的 metadata (通常一个文档的内容结构是一致的)
-                    doc_struct = pseudo_chunks[0]["doc_metadata"]
-                    
-                    # 这是一个 Hack: 我们把结构化数据塞进 doc_metadata
-                    # 这样 ContentFormatter 在处理时，如果能识别，就可以直接输出
-                    if "doc_metadata" not in d_detail:
-                        d_detail["doc_metadata"] = {}
-                    
-                    # 这里的 doc_metadata 可能是 list (Dify 风格) 也可能是 dict
-                    # 为了安全，我们把结构化数据放在一个特殊字段里，或者直接替换
-                    # 用户希望 "最终输出的时候将原本的metadata字段使用这种json结构替换"
-                    
-                    # 让我们修改 ContentFormatter.clean_metadata 或 format_document 逻辑？
-                    # 不，直接在这里替换最简单。
-                    # 但是 d_detail["doc_metadata"] 原本可能包含 filename 等信息，最好保留
-                    
-                    # 方案：将 structured_data 作为一个字段 'structured_content' 加入
-                    # 或者，如果用户希望完全替换 doc_metadata 为这个结构化 JSON...
-                    
-                    # 根据用户需求 2: "我希望最终输出的时候将原本的metadata字段使用这种json结构替换"
-                    # 这意味着最终 JSON 里的 doc_metadata 应该就是 structured_data
-                    d_detail["doc_metadata"] = doc_struct
-
-                fmt_doc = ContentFormatter.format_document(pseudo_chunks, d_detail, context='full_doc')
-                
-                # 设置 Source Type
-                sample_content = valid_segs[0].get('content', '')
+                # 确定 Source Type
+                sample_content = valid_segs[0].get('content', '') if valid_segs else ""
                 sample_data = TuoyuContentParser.parse_key_value_lines(sample_content)
                 
                 if '岗位' in sample_data or 'job_role' in sample_data:
-                    fmt_doc['source_type'] = 'Tuoyu_Questionnaire'
+                    source_type = 'Tuoyu_Questionnaire'
                 else:
-                    fmt_doc['source_type'] = 'Tuoyu_institution'
+                    source_type = 'Tuoyu_institution'
+                
+                # 手动构建最终文档结构，绕过 ContentFormatter 以保留 block 级别的 metadata
+                # 顶层 doc_metadata 保留原始文档的元数据 (清洗后)
+                top_meta = ContentFormatter.clean_metadata(d_detail.get("doc_metadata", []))
+                
+                fmt_doc = {
+                    "doc_metadata": top_meta,
+                    "document_id": d_id,
+                    "document_name": d_detail.get('name'),
+                    "source_type": source_type,
+                    "content_blocks": content_blocks
+                }
                     
                 return fmt_doc
 
