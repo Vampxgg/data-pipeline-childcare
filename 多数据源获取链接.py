@@ -295,6 +295,45 @@ def _intelligent_input_parser(raw_input: Any, run_mode: str = "X-Pilot") -> Dict
 
 
 # ==============================================================================
+# ============ 省份中文名 -> gov.cn 域名标识映射 (手工维护) ============
+# ==============================================================================
+# 数据来源：中国政府网 (www.gov.cn) 各省门户实际域名，已逐一验证。
+# 各省域名无统一规律：全拼(hubei)、缩写(sc)、特殊(gxzf) 并存，无法用算法推导。
+PROVINCE_DOMAIN_MAP = {
+    "北京": "beijing", "北京市": "beijing",
+    "天津": "tj", "天津市": "tj",
+    "河北": "hebei", "河北省": "hebei",
+    "山西": "shanxi", "山西省": "shanxi",
+    "内蒙古": "nmg", "内蒙古自治区": "nmg", "内蒙": "nmg",
+    "辽宁": "ln", "辽宁省": "ln",
+    "吉林": "jl", "吉林省": "jl",
+    "黑龙江": "hlj", "黑龙江省": "hlj",
+    "上海": "shanghai", "上海市": "shanghai",
+    "江苏": "jiangsu", "江苏省": "jiangsu",
+    "浙江": "zj", "浙江省": "zj",
+    "安徽": "ah", "安徽省": "ah",
+    "福建": "fujian", "福建省": "fujian",
+    "江西": "jiangxi", "江西省": "jiangxi",
+    "山东": "shandong", "山东省": "shandong",
+    "河南": "henan", "河南省": "henan",
+    "湖北": "hubei", "湖北省": "hubei",
+    "湖南": "hunan", "湖南省": "hunan",
+    "广东": "gd", "广东省": "gd",
+    "广西": "gxzf", "广西壮族自治区": "gxzf", "广西自治区": "gxzf",
+    "海南": "hainan", "海南省": "hainan",
+    "重庆": "cq", "重庆市": "cq",
+    "四川": "sc", "四川省": "sc",
+    "贵州": "guizhou", "贵州省": "guizhou",
+    "云南": "yn", "云南省": "yn",
+    "西藏": "xizang", "西藏自治区": "xizang",
+    "陕西": "shaanxi", "陕西省": "shaanxi",
+    "甘肃": "gansu", "甘肃省": "gansu",
+    "青海": "qinghai", "青海省": "qinghai",
+    "宁夏": "nx", "宁夏回族自治区": "nx",
+    "新疆": "xinjiang", "新疆维吾尔自治区": "xinjiang",
+}
+
+# ==============================================================================
 # ====================== 全局搜索策略配置 ======================
 # ==============================================================================
 SEARCH_STRATEGY_CONFIG = {
@@ -462,6 +501,23 @@ SEARCH_STRATEGY_CONFIG = {
 
 }
 
+_PROVINCE_FUZZY_KEYS = sorted(PROVINCE_DOMAIN_MAP, key=len, reverse=True)
+
+
+def _normalize_scope_to_domain(scope_value: str) -> str:
+    """将中文省份/地区名转换为 gov.cn 域名标识，支持模糊输入如 '湖北省武汉市' -> 'hubei'。"""
+    if not scope_value:
+        return scope_value
+    cleaned = scope_value.strip()
+    if cleaned.isascii() and cleaned.islower():
+        return cleaned
+    for key in _PROVINCE_FUZZY_KEYS:
+        if key in cleaned:
+            print(f"  -> [Scope Mapped] '{cleaned}' -> '{PROVINCE_DOMAIN_MAP[key]}'")
+            return PROVINCE_DOMAIN_MAP[key]
+    print(f"  -> [Warning] Unknown scope '{cleaned}', cannot map to domain slug. Using as-is.")
+    return cleaned
+
 
 def _generate_exclusive_queries(
         regional_data: Optional[Dict[str, str]] = None
@@ -528,11 +584,15 @@ def _build_filtered_query(original_query: str, search_type: str,
     if use_regional_patterns and regional_data:
         regional_patterns = strategy.get("regional_patterns", [])
         if regional_patterns:
+            domain_data = regional_data.copy()
+            if domain_data.get("scope"):
+                domain_data["scope"] = _normalize_scope_to_domain(domain_data["scope"])
             valid_sites = []
             for pattern in regional_patterns:
                 try:
-                    formatted_site = pattern.format(**regional_data)
+                    formatted_site = pattern.format(**domain_data)
                     valid_sites.append(formatted_site)
+                    print(valid_sites)
                 except KeyError:
                     pass
             if valid_sites:
@@ -1292,7 +1352,8 @@ async def main_async(raw_input: Any, provider_selection: Union[str, List[str]], 
         if institution_search_types and not institution_source_queries:
             institution_source_queries = tuoyu_web_queries
 
-    has_web_work = bool(comprehensive_queries) or bool(general_web_queries) or bool(institution_source_queries) or bool(exclusive_queries)
+    has_web_work = bool(comprehensive_queries) or bool(general_web_queries) or bool(institution_source_queries) or bool(
+        exclusive_queries)
 
     # 3.1 处理 Provider 选择逻辑 (仅当有工作时才深入处理)
     selected_providers = []
@@ -1386,7 +1447,8 @@ async def main_async(raw_input: Any, provider_selection: Union[str, List[str]], 
                     )
                     async_tasks.append(("institution_source", is_task))
                 else:
-                    print("  -> [External Mode] Skipping Institution Source Search (No institution search types selected).")
+                    print(
+                        "  -> [External Mode] Skipping Institution Source Search (No institution search types selected).")
 
             # 5.4 创建专属查询任务 (如果存在)
             if is_exclusive_requested and exclusive_queries:
@@ -1606,8 +1668,8 @@ main({
         ]
     }
 }, ["searchapi_io"], [
-    "web","exclusive_rules"
-], web_results_per_type="3", regional_rules={"school": "中医医疗", "major": "医学垂直类专业", "scope": "湖北"},
+    "web", "exclusive_rules", "policy_regional"
+], web_results_per_type="3", regional_rules={"school": "中医医疗", "major": "医学垂直类专业", "scope": "成都市"},
     time_filter="2026-01-22", run_mode="Tuoyu"
 )
 
