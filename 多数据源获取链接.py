@@ -588,11 +588,11 @@ def _build_filtered_query(original_query: str, search_type: str,
             if domain_data.get("scope"):
                 domain_data["scope"] = _normalize_scope_to_domain(domain_data["scope"])
             valid_sites = []
+            print(valid_sites)
             for pattern in regional_patterns:
                 try:
                     formatted_site = pattern.format(**domain_data)
                     valid_sites.append(formatted_site)
-                    print(valid_sites)
                 except KeyError:
                     pass
             if valid_sites:
@@ -1668,8 +1668,8 @@ main({
         ]
     }
 }, ["searchapi_io"], [
-    "web", "exclusive_rules", "policy_regional"
-], web_results_per_type="3", regional_rules={"school": "中医医疗", "major": "医学垂直类专业", "scope": "成都市"},
+    "web", "exclusive_rules", "regional_patterns"
+], web_results_per_type="3", regional_rules={"school": "中医医疗", "major": "医学垂直类专业", "scope": "湖北"},
     time_filter="2026-01-22", run_mode="Tuoyu"
 )
 

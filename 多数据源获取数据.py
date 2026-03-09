@@ -1,4 +1,4 @@
-# Dify 依赖管理: 请确保已添加 httpx, json-repair, trafilatura, pypdf2, beautifulsoup4, lxml
+# Dify 依赖管理: markitdown-no-magika, httpx, trafilatura, beautifulsoup4, lxml, PyMuPDF, pdfplumber, python-pptx, python-docx, openpyxl, xlrd, Pillow
 import asyncio
 import httpx
 import re
@@ -15,7 +15,7 @@ import base64
 import hashlib
 
 try:
-    from markitdown import MarkItDown
+    from markitdown import MarkItDown  # pip install markitdown-no-magika (无 onnxruntime 依赖)
 except ImportError as e:
     print(f"‼️ MarkItDown Import Error: {e}")
     MarkItDown = None
@@ -651,22 +651,71 @@ class DocumentParserService:
                     pass
 
     # ── PDF ──────────────────────────────────────────────────
+    @staticmethod
+    def _bbox_overlap(bbox_a, bbox_b, tolerance=2.0) -> bool:
+        """判断两个 bbox 是否在 Y 轴方向上有足够重叠 (用于去重表格区域内的散碎文本)"""
+        ax0, ay0, ax1, ay1 = bbox_a
+        bx0, by0, bx1, by1 = bbox_b
+        if ax1 < bx0 + tolerance or bx1 < ax0 + tolerance:
+            return False
+        if ay1 < by0 + tolerance or by1 < ay0 + tolerance:
+            return False
+        overlap_x = min(ax1, bx1) - max(ax0, bx0)
+        width_a = ax1 - ax0
+        return width_a > 0 and (overlap_x / width_a) > 0.5
+
     def _parse_pdf(self, data: bytes, source_url: str = "") -> str:
         parts = []
         img_count = 0
+        table_bboxes_per_page: Dict[int, list] = {}
+
+        plumber_tables_per_page: Dict[int, list] = {}
+        try:
+            with pdfplumber.open(BytesIO(data)) as plumber_pdf:
+                page_limit = min(len(plumber_pdf.pages), self.PDF_MAX_PAGES)
+                for pi in range(page_limit):
+                    pp = plumber_pdf.pages[pi]
+                    tables = pp.find_tables()
+                    if not tables:
+                        continue
+                    page_tables = []
+                    page_bboxes = []
+                    for tbl in tables:
+                        rows = tbl.extract()
+                        if not rows:
+                            continue
+                        cleaned = []
+                        for row in rows:
+                            cleaned.append([(c or "").strip() for c in row])
+                        if any(any(cell for cell in r) for r in cleaned):
+                            page_tables.append((tbl.bbox[1], cleaned))
+                            page_bboxes.append(tbl.bbox)
+                    if page_tables:
+                        plumber_tables_per_page[pi] = page_tables
+                        table_bboxes_per_page[pi] = page_bboxes
+        except Exception as e:
+            print(f"  ⚠️ pdfplumber 表格提取异常 (不影响正文): {e}")
+
         try:
             with fitz.open(stream=data, filetype="pdf") as doc:
                 total = len(doc)
                 limit = min(total, self.PDF_MAX_PAGES)
                 if total > self.PDF_MAX_PAGES:
                     print(f"  📄 PDF 共 {total} 页，只处理前 {limit} 页")
+
                 for pi in range(limit):
                     page = doc.load_page(pi)
                     page_dict = page.get_text("dict", sort=True)
+                    tbl_bboxes = table_bboxes_per_page.get(pi, [])
                     elements = []
+
                     for block in page_dict.get("blocks", []):
-                        y0 = block.get("bbox", [0, 0, 0, 0])[1]
+                        b_bbox = block.get("bbox", [0, 0, 0, 0])
+                        y0 = b_bbox[1]
+
                         if block["type"] == 0:
+                            if tbl_bboxes and any(self._bbox_overlap(b_bbox, tb) for tb in tbl_bboxes):
+                                continue
                             lines_text = []
                             for ln in block.get("lines", []):
                                 span_txt = "".join(s.get("text", "") for s in ln.get("spans", []))
@@ -674,9 +723,9 @@ class DocumentParserService:
                                     lines_text.append(span_txt.strip())
                             if lines_text:
                                 elements.append((y0, "\n".join(lines_text)))
+
                         elif block["type"] == 1:
-                            bbox = block.get("bbox", [0, 0, 0, 0])
-                            w, h = bbox[2] - bbox[0], bbox[3] - bbox[1]
+                            w, h = b_bbox[2] - b_bbox[0], b_bbox[3] - b_bbox[1]
                             if w < self.MIN_IMG_DIM or h < self.MIN_IMG_DIM:
                                 continue
                             img_bytes = block.get("image", b"")
@@ -685,6 +734,10 @@ class DocumentParserService:
                             img_count += 1
                             elements.append(
                                 (y0, f"![图片{img_count} (第{pi + 1}页, {int(w)}x{int(h)})](pdf_image_{img_count})"))
+
+                    for tbl_y0, tbl_rows in plumber_tables_per_page.get(pi, []):
+                        elements.append((tbl_y0, self._rows_to_md_table(tbl_rows)))
+
                     elements.sort(key=lambda x: x[0])
                     page_content = "\n\n".join(e[1] for e in elements)
                     if page_content.strip():
@@ -692,8 +745,10 @@ class DocumentParserService:
                             parts.append(f"<!-- 第 {pi + 1} 页 -->\n\n{page_content}")
                         else:
                             parts.append(page_content)
+
                 if total > self.PDF_MAX_PAGES:
                     parts.append(f"\n\n> PDF 共 {total} 页，已处理前 {limit} 页")
+
             result = "\n\n".join(parts).strip()
             if result:
                 result = self._upload_embedded_images(data, '.pdf', result)
@@ -708,11 +763,78 @@ class DocumentParserService:
 
     # ── DOCX ─────────────────────────────────────────────────
     def _parse_docx(self, data: bytes, source_url: str = "") -> str:
-        """DOCX: MarkItDown 文本 -> 上传嵌入图片(base64/本地引用) -> 清洗"""
+        """DOCX: MarkItDown 优先 -> python-docx 回退(含图片) -> 清洗"""
         md_text = self._markitdown_convert(data, ".docx")
+        if md_text:
+            md_text = self._upload_embedded_images(data, '.docx', md_text)
+            return self.cleaner.clean_document(md_text)
+
+        if DocxDocument is None:
+            return ""
+        try:
+            doc = DocxDocument(BytesIO(data))
+
+            images = EmbeddedImageUploader.extract_from_zip(data, 'word/media/', min_size=self.MIN_IMG_BYTES)
+            url_map: Dict[str, str] = {}
+            if images:
+                images.sort(key=lambda x: x[0])
+                print(f"  📷 python-docx 回退: 从 DOCX 提取到 {len(images)} 张图片，正在上传...")
+                url_map = EmbeddedImageUploader.upload_images(images)
+                if url_map:
+                    print(f"  ✅ 成功上传 {len(url_map)}/{len(images)} 张")
+
+            img_count = 0
+            rId_to_url: Dict[str, str] = {}
+            for rel_id, rel in doc.part.rels.items():
+                if "image" in getattr(rel, 'reltype', ''):
+                    target = os.path.basename(str(rel.target_ref))
+                    if target.lower() in {k.lower() for k in url_map}:
+                        for k, v in url_map.items():
+                            if k.lower() == target.lower():
+                                rId_to_url[rel_id] = v
+                                break
+
+            paragraphs = []
+            for para in doc.paragraphs:
+                para_xml = para._element.xml
+                has_image = '<w:drawing' in para_xml or '<v:imagedata' in para_xml or '<wp:inline' in para_xml
+                text = para.text.strip()
+                if text:
+                    if para.style and para.style.name and 'Heading' in para.style.name:
+                        level = para.style.name.replace('Heading', '').strip()
+                        prefix = '#' * (int(level) if level.isdigit() else 2)
+                        paragraphs.append(f"{prefix} {text}")
+                    else:
+                        paragraphs.append(text)
+                if has_image:
+                    img_count += 1
+                    img_url = None
+                    embed_match = re.search(r'r:embed="([^"]+)"', para_xml)
+                    if embed_match:
+                        img_url = rId_to_url.get(embed_match.group(1))
+                    if not img_url and url_map:
+                        ordered = sorted(url_map.values())
+                        idx = img_count - 1
+                        if idx < len(ordered):
+                            img_url = ordered[idx]
+                    if img_url:
+                        paragraphs.append(f"![文档图片{img_count}]({img_url})")
+
+            for table in doc.tables:
+                rows = []
+                for row in table.rows:
+                    rows.append([cell.text.strip() for cell in row.cells])
+                if rows:
+                    paragraphs.append(self._rows_to_md_table(rows))
+
+            md_text = "\n\n".join(paragraphs)
+            print(f"  📄 MarkItDown 失败, python-docx 回退成功 ({len(md_text)} chars)")
+        except Exception as e:
+            print(f"⚠️ python-docx 回退也失败: {e}")
+            return ""
+
         if not md_text:
             return ""
-        md_text = self._upload_embedded_images(data, '.docx', md_text)
         return self.cleaner.clean_document(md_text)
 
     # ── PPTX ─────────────────────────────────────────────────
